@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://subaru5678.github.io/-/sitemap.xml

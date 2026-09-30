@@ -25,7 +25,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site
-          cp index.html ads.txt _site/
+          cp index.html ads.txt robots.txt _site/
       - uses: actions/configure-pages@v5
         with:
           enablement: true
