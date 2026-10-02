@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ユーラシア旅行社 トップページ サンプル</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+:root{
+  --main:#fff; --blue:#2f7fc1; --sky:#e8f3fb; --navy:#16324f; --brown:#a67c52; --text:#2b3640;
+}
+body{font-family:"Noto Sans JP",sans-serif;color:var(--text);line-height:1.9;font-size:16px;background:#fff}
+.en{font-family:"Cormorant Garamond",serif;letter-spacing:.08em}
+.serif{font-family:"Noto Serif JP",serif}
+/* コンテンツ幅 1230px（背景のみフル幅） */
+.container{max-width:1230px}
+section{padding:96px 0}
+.sec-head{text-align:center;margin-bottom:56px}
+.sec-head .en{display:block;font-size:3rem;color:var(--blue);line-height:1.1}
+.sec-head h2{font-size:1rem;color:var(--text);letter-spacing:.2em;margin-top:8px}
+.sec-head::after{content:"";display:block;width:40px;height:1px;background:var(--brown);margin:20px auto 0}
+
+/* header */
+.site-header{position:absolute;top:0;left:0;right:0;z-index:10;padding:20px 0;color:#fff}
+.site-header .logo{font-size:1.5rem;font-weight:600;color:#fff;text-decoration:none}
+.site-header nav a{color:#fff;text-decoration:none;margin-left:28px;font-size:.9rem;letter-spacing:.1em}
+.btn-cta{background:var(--blue);color:#fff;border-radius:50px;padding:12px 32px;letter-spacing:.1em;border:0}
+.btn-cta:hover{background:#256aa3;color:#fff}
+.btn-line{border:1px solid #fff;color:#fff;border-radius:50px;padding:12px 32px;letter-spacing:.1em}
+.btn-line:hover{background:#fff;color:var(--navy)}
+
+/* hero */
+.hero{position:relative;min-height:min(100vh,820px);display:flex;align-items:center;color:#fff;padding:0;
+  background:linear-gradient(rgba(10,35,60,.35),rgba(10,35,60,.35)),url("https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2000&q=70") center/cover}
+.hero .en{font-size:clamp(2.6rem,7vw,5.5rem);line-height:1.05;font-style:italic}
+.hero p.lead{font-size:1.15rem;margin:24px 0 36px}
+
+/* concept */
+.concept{background:#fff}
+.concept h3{font-size:1.7rem;line-height:1.7}
+.concept img{border-radius:4px;width:100%;aspect-ratio:4/3;object-fit:cover}
+
+/* area */
+.area{background:var(--sky)}
+.card-area{border:0;border-radius:4px;overflow:hidden;background:#fff;height:100%;transition:transform .3s,box-shadow .3s}
+.card-area:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(22,50,79,.15)}
+.card-area img{aspect-ratio:3/2;object-fit:cover}
+.card-area .en{font-size:1.5rem;color:var(--blue)}
+.card-area .card-body{padding:20px 24px 28px}
+
+/* order made */
+.flow{counter-reset:n}
+.flow-item{position:relative;text-align:center;padding:0 12px}
+.flow-item .num{font-family:"Cormorant Garamond",serif;font-size:3.2rem;color:var(--brown);line-height:1}
+.flow-item h3{font-size:1.1rem;margin:12px 0 8px;font-weight:700}
+.flow-item p{font-size:.95rem;margin:0}
+
+/* feature w/ bg */
+.feature{color:#fff;background:linear-gradient(rgba(22,50,79,.6),rgba(22,50,79,.6)),url("https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=2000&q=70") center/cover fixed}
+.feature .box{border-top:1px solid rgba(255,255,255,.5);padding-top:20px}
+.feature .en{font-size:2.4rem;color:#fff}
+
+/* voice */
+.voice-card{background:#fff;border:1px solid #dbe8f2;border-radius:4px;padding:28px;height:100%}
+.voice-card .meta{font-size:.85rem;color:var(--brown)}
+
+/* contact */
+.contact{background:var(--sky);text-align:center}
+footer{background:var(--navy);color:#cfdbe8;padding:40px 0;font-size:.85rem}
+footer a{color:#cfdbe8;text-decoration:none;margin:0 12px}
+
+@media(max-width:767px){
+  section{padding:64px 0}
+  .site-header nav{display:none}
+  .sec-head .en{font-size:2.3rem}
+  .feature{background-attachment:scroll}
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container d-flex justify-content-between align-items-center">
+    <a href="#" class="logo en">■■■■ Travel</a>
+    <nav>
+      <a href="#concept">私たちについて</a>
+      <a href="#area">方面から探す</a>
+      <a href="#order">オーダーメイド</a>
+      <a href="#voice">お客様の声</a>
+      <a href="#contact">お問い合わせ</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <p class="en mb-2" style="font-size:1.3rem">Journey across Eurasia</p>
+    <h1 class="en">Your Own<br>Special Journey</h1>
+    <p class="lead serif">果てしなく広がる大陸へ。あなただけの旅を、ご一緒に。</p>
+    <a href="#order" class="btn btn-cta me-2">オーダーメイド旅行</a>
+    <a href="#area" class="btn btn-line">ツアーを見る</a>
+  </div>
+</div>
+
+<!-- CONCEPT -->
+<section id="concept" class="concept">
+  <div class="container">
+    <div class="sec-head"><span class="en">Concept</span><h2>私たちについて</h2></div>
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6">
+        <h3 class="serif mb-4">ユーラシアの魅力を、<br>もっと深く、もっと自由に。</h3>
+        <p>■■■■トラベルは、ユーラシア大陸を中心とした海外旅行を取り扱う旅行会社です。各地域の専門知識と現地ネットワークを活かし、一般的な観光では出会えない景色や時間をご提案します。</p>
+        <p>オーダーメイドやツアーはもちろん、ビザ申請など旅に必要な手続きの代行も承ります。</p>
+        <a href="#contact" class="btn btn-cta mt-3">相談してみる</a>
+      </div>
+      <div class="col-lg-6">
+        <img src="https://images.unsplash.com/photo-1513326738677-b964603b136d?auto=format&fit=crop&w=1000&q=70" alt="歴史ある街並み">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AREA -->
+<section id="area" class="area">
+  <div class="container">
+    <div class="sec-head"><span class="en">Destinations</span><h2>方面から探す</h2></div>
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-4"><a href="#" class="card card-area text-decoration-none text-reset">
+        <img src="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=800&q=70" class="card-img-top" alt="">
+        <div class="card-body"><div class="en">Central Asia</div><h3 class="h6 fw-bold">中央アジア</h3><p class="small mb-0">青の都サマルカンドなど、シルクロードの歴史を巡る。</p></div></a></div>
+      <div class="col-md-6 col-lg-4"><a href="#" class="card card-area text-decoration-none text-reset">
+        <img src="https://images.unsplash.com/photo-1491557345352-5929e343eb89?auto=format&fit=crop&w=800&q=70" class="card-img-top" alt="">
+        <div class="card-body"><div class="en">Caucasus</div><h3 class="h6 fw-bold">コーカサス</h3><p class="small mb-0">雄大な山々と、ワインと食文化に出会う旅。</p></div></a></div>
+      <div class="col-md-6 col-lg-4"><a href="#" class="card card-area text-decoration-none text-reset">
+        <img src="https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?auto=format&fit=crop&w=800&q=70" class="card-img-top" alt="">
+        <div class="card-body"><div class="en">Eastern Europe</div><h3 class="h6 fw-bold">東ヨーロッパ</h3><p class="small mb-0">中世の面影を残す、美しい街並みを歩く。</p></div></a></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE -->
+<section class="feature">
+  <div class="container">
+    <div class="row g-5 text-center text-md-start">
+      <div class="col-md-4"><div class="box"><div class="en">01</div><h3 class="h5 serif">専門知識</h3><p class="mb-0 small">各地域に精通したスタッフが、見どころと季節を踏まえてご提案。</p></div></div>
+      <div class="col-md-4"><div class="box"><div class="en">02</div><h3 class="h5 serif">現地ネットワーク</h3><p class="mb-0 small">信頼できる現地パートナーとともに、安心の旅をサポート。</p></div></div>
+      <div class="col-md-4"><div class="box"><div class="en">03</div><h3 class="h5 serif">手続き代行</h3><p class="mb-0 small">ビザなど、旅に必要な手続きもお任せください。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ORDER MADE -->
+<section id="order">
+  <div class="container">
+    <div class="sec-head"><span class="en">Order-made</span><h2>オーダーメイド旅行の流れ</h2></div>
+    <div class="row g-4">
+      <div class="col-6 col-lg-3 flow-item"><div class="num">01</div><h3>ご相談</h3><p>行きたい場所や、叶えたい旅をお聞かせください。</p></div>
+      <div class="col-6 col-lg-3 flow-item"><div class="num">02</div><h3>プラン提案</h3><p>ご希望に合わせた旅程とお見積りをご提案します。</p></div>
+      <div class="col-6 col-lg-3 flow-item"><div class="num">03</div><h3>手配・手続き</h3><p>宿泊・移動・ビザなど、必要な手配を進めます。</p></div>
+      <div class="col-6 col-lg-3 flow-item"><div class="num">04</div><h3>ご出発</h3><p>出発後も現地ネットワークでサポートします。</p></div>
+    </div>
+    <div class="text-center mt-5"><a href="#contact" class="btn btn-cta">オーダーメイドを相談する</a></div>
+  </div>
+</section>
+
+<!-- VOICE -->
+<section id="voice" style="background:#fff;padding-top:0">
+  <div class="container">
+    <div class="sec-head"><span class="en">Voice</span><h2>お客様の声</h2></div>
+    <div class="row g-4">
+      <div class="col-md-4"><div class="voice-card"><p>細かな希望まで汲み取っていただき、想像以上の旅になりました。</p><div class="meta">60代・ご夫婦／中央アジア</div></div></div>
+      <div class="col-md-4"><div class="voice-card"><p>手続きも任せられて安心。現地での案内も丁寧でした。</p><div class="meta">50代・女性／コーカサス</div></div></div>
+      <div class="col-md-4"><div class="voice-card"><p>友人4人の旅行でも、ひとりひとりの希望を調整してくれました。</p><div class="meta">70代・ご友人グループ／東ヨーロッパ</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact" class="contact">
+  <div class="container">
+    <div class="sec-head"><span class="en">Contact</span><h2>お問い合わせ</h2></div>
+    <p class="mb-4">旅のイメージが固まっていなくても大丈夫です。まずはお気軽にご相談ください。</p>
+    <a href="#" class="btn btn-cta btn-lg">お問い合わせフォーム</a>
+    <p class="mt-4 mb-0 small">TEL 00-0000-0000（平日 10:00-18:00）</p>
+  </div>
+</section>
+
+<footer>
+  <div class="container text-center">
+    <div class="mb-3"><a href="#">会社概要</a><a href="#">プライバシーポリシー</a><a href="#">お問い合わせ</a></div>
+    <div class="en">© ■■■■ Travel. All Rights Reserved. <span class="ms-2">（デザインサンプル／画像は仮）</span></div>
+  </div>
+</footer>
+
+</body>
+</html>
