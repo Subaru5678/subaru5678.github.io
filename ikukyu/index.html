@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>育休給付金シミュレーター|手取り月額と総額を自動計算</title>
+<meta name="description" content="月給と育休期間を入力するだけで、育児休業給付金の月額・総額を計算。出生後休業支援給付金(実質手取り10割相当)にも対応。">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8464656892971770" crossorigin="anonymous"></script>
+<style>
+  :root{ --bg:#f7f5f4; --card:#fff; --text:#221c1a; --sub:#6b625e; --accent:#3f6fc9; --line:#e4dfdc; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#181514; --card:#242120; --text:#f2eeec; --sub:#a39a96; --accent:#7ba3ee; --line:#3a3533; }
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--text); line-height:1.7;
+    font-family:'Hiragino Sans','Noto Sans JP',system-ui,sans-serif; padding:16px; }
+  main{ max-width:560px; margin:0 auto; }
+  h1{ font-size:1.35rem; margin:8px 0 16px; }
+  h2{ font-size:1.05rem; margin:24px 0 8px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; }
+  label{ display:block; font-size:.85rem; color:var(--sub); margin:12px 0 4px; }
+  label:first-child{ margin-top:0; }
+  input[type=number],select{ width:100%; font-size:1.1rem; padding:10px 12px; border:1px solid var(--line);
+    border-radius:10px; background:var(--bg); color:var(--text); }
+  .chk{ display:flex; gap:8px; align-items:flex-start; margin-top:14px; font-size:.9rem; color:var(--text); }
+  .chk input{ margin-top:6px; }
+  .result{ text-align:center; }
+  .big{ font-size:2.2rem; font-weight:700; color:var(--accent); margin:2px 0; }
+  .note{ font-size:.82rem; color:var(--sub); }
+  table{ width:100%; border-collapse:collapse; font-size:.92rem; margin-top:10px; }
+  td,th{ padding:6px 4px; border-bottom:1px solid var(--line); text-align:right; }
+  td:first-child,th:first-child{ text-align:left; }
+  ul{ padding-left:1.2em; font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>👶 育児休業給付金シミュレーター</h1>
+
+  <div class="card">
+    <label for="salary">休業前の月給(額面・賞与除く/円)</label>
+    <input id="salary" type="number" inputmode="numeric" min="0" placeholder="例: 300000" value="300000">
+    <label for="months">育休を取る期間(か月)</label>
+    <input id="months" type="number" inputmode="numeric" min="1" max="24" value="12">
+    <label for="age">年齢区分(賃金日額の上限が変わります)</label>
+    <select id="age">
+      <option value="0">29歳以下</option>
+      <option value="1" selected>30〜44歳</option>
+      <option value="2">45〜59歳</option>
+    </select>
+    <label for="tbl">適用する上限額</label>
+    <select id="tbl">
+      <option value="r7">令和7年8月〜令和8年7月</option>
+      <option value="r8" selected>令和8年8月〜(要・厚労省で最終確認)</option>
+    </select>
+    <label class="chk"><input id="plus" type="checkbox" checked>
+      <span>出生後休業支援給付金(+13%)を受ける<br>
+      <span class="note">子の出生後8週間以内に夫婦ともに14日以上の育休を取得(最大28日)</span></span></label>
+  </div>
+
+  <div class="card result" id="out" aria-live="polite"></div>
+
+  <h2>計算のしくみ</h2>
+  <ul>
+    <li>賃金日額 = 休業前6か月の賃金総額 ÷ 180(ここでは月給×6÷180で概算)</li>
+    <li>支給額(30日分)= 賃金日額 × 30 × 67%(育休開始から181日目以降は50%)</li>
+    <li>出生後休業支援給付金は最大28日分、賃金日額 × 13%。合わせて80%(手取りで約10割)</li>
+    <li>育児休業給付金は非課税で、育休中は社会保険料も免除されます</li>
+  </ul>
+  <p class="note">※ 概算です。実際の支給額は賃金の算定期間・賞与・支給単位期間(日数)により変わります。上限額は改定されるため、申請前に
+  <a href="https://www.mhlw.go.jp/" rel="noopener">厚生労働省</a>やハローワークで最新額をご確認ください。</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+
+// 賃金日額の上限(年齢区分: 29歳以下 / 30〜44歳 / 45〜59歳)と下限
+const TABLES = {
+  r7: { upper:[14510, 16110, 17740], lower:3014 },
+  r8: { upper:[14510, 16540, 17740], lower:3014 } // 30〜44歳のみ民間情報から逆算。他区分・下限は未更新
+};
+
+function calc(){
+  const salary = parseFloat($('salary').value);
+  const months = parseInt($('months').value, 10);
+  const out = $('out');
+  if(!(salary > 0) || !(months >= 1)){
+    out.innerHTML = '<p class="note">月給と期間を入力してください。</p>';
+    return;
+  }
+  const t = TABLES[$('tbl').value];
+  let daily = salary * 6 / 180;
+  daily = Math.min(Math.max(daily, t.lower), t.upper[+$('age').value]);
+
+  const plus = $('plus').checked;
+  const m1 = daily * 30 * 0.67;
+  const m7 = daily * 30 * 0.50;
+  const bonus = plus ? daily * 28 * 0.13 : 0;
+  const rate1 = plus ? '80%' : '67%';
+
+  let total = 0;
+  const rows = [];
+  const upto = Math.min(months, 24);
+  for(let m = 1; m <= upto; m++){
+    const base = m <= 6 ? m1 : m7;
+    // 出生後休業支援給付金は最初の28日分(1か月目に加算)
+    const amt = base + (m === 1 ? bonus : 0);
+    total += amt;
+  }
+  rows.push(['1〜6か月目', m1, plus ? '67% + 13%(28日)' : '67%']);
+  if(upto > 6) rows.push(['7か月目〜', m7, '50%']);
+
+  let html = '<div class="note">' + upto + 'か月間の受給総額(概算)</div>' +
+    '<div class="big">' + yen(total) + '</div>' +
+    '<div class="note">賃金日額 ' + yen(daily) + '(上限・下限適用後)</div>' +
+    '<table><tr><th>期間</th><th>月額</th><th>給付率</th></tr>';
+  rows.forEach(r => { html += '<tr><td>' + r[0] + '</td><td>' + yen(r[1]) + '</td><td>' + r[2] + '</td></tr>'; });
+  html += '</table>';
+  if(plus) html += '<p class="note">1か月目に出生後休業支援給付金 ' + yen(bonus) + ' を加算(合計 ' + rate1 + ' 相当)</p>';
+  out.innerHTML = html;
+}
+['salary','months','age','tbl','plus'].forEach(id => $(id).addEventListener('input', calc));
+calc();
+</script>
+</body>
+</html>
