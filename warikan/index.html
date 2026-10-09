@@ -78,7 +78,6 @@ function calc(){
   }
   // 幹事の追加負担を除いた残りを、幹事以外で均等に割る
   const others = people - 1;
-  const rest = total - (boss > 0 ? boss : 0) - (boss < 0 ? boss : 0) ;
   const perOther = Math.ceil(Math.max(0, (total - boss) / people) / unit) * unit;
   const collected = perOther * others;
   const bossPay = total - collected;
