@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>割り勘計算機</title>
+<meta name="description" content="合計金額と人数を入力するだけ。端数の調整や幹事の多め負担にも対応した割り勘計算機。">
+<style>
+  :root{ --bg:#f7f5f4; --card:#fff; --text:#221c1a; --sub:#6b625e; --accent:#3f6fc9; --line:#e4dfdc; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#181514; --card:#242120; --text:#f2eeec; --sub:#a39a96; --accent:#7ba3ee; --line:#3a3533; }
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font-family:'Hiragino Sans','Noto Sans JP',system-ui,sans-serif; padding:16px; }
+  main{ max-width:480px; margin:0 auto; }
+  h1{ font-size:1.4rem; margin:8px 0 16px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; }
+  label{ display:block; font-size:.85rem; color:var(--sub); margin:12px 0 4px; }
+  label:first-child{ margin-top:0; }
+  input,select{ width:100%; font-size:1.1rem; padding:10px 12px; border:1px solid var(--line);
+    border-radius:10px; background:var(--bg); color:var(--text); }
+  .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .result{ text-align:center; }
+  .big{ font-size:2.4rem; font-weight:700; color:var(--accent); margin:6px 0; }
+  .note{ font-size:.85rem; color:var(--sub); line-height:1.6; }
+  .err{ color:#d14343; font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🍻 割り勘計算機</h1>
+
+  <div class="card">
+    <label for="total">合計金額(円)</label>
+    <input id="total" type="number" inputmode="numeric" min="0" placeholder="例: 24500">
+    <div class="row">
+      <div>
+        <label for="people">人数</label>
+        <input id="people" type="number" inputmode="numeric" min="1" value="4">
+      </div>
+      <div>
+        <label for="round">端数の切り上げ</label>
+        <select id="round">
+          <option value="1">1円単位</option>
+          <option value="10">10円単位</option>
+          <option value="100" selected>100円単位</option>
+          <option value="500">500円単位</option>
+          <option value="1000">1,000円単位</option>
+        </select>
+      </div>
+    </div>
+    <label for="boss">幹事(1人)の追加負担(円・マイナスで割引)</label>
+    <input id="boss" type="number" inputmode="numeric" value="0">
+  </div>
+
+  <div class="card result" id="out" aria-live="polite"></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+
+function calc(){
+  const total = parseFloat($('total').value);
+  const people = parseInt($('people').value, 10);
+  const unit = parseInt($('round').value, 10);
+  const boss = parseFloat($('boss').value) || 0;
+  const out = $('out');
+
+  if(!(total > 0) || !(people >= 1)){
+    out.innerHTML = '<p class="note">金額と人数を入力してください。</p>';
+    return;
+  }
+  if(people === 1){
+    out.innerHTML = '<div class="note">お支払い</div><div class="big">' + yen(total) + '</div>';
+    return;
+  }
+  // 幹事の追加負担を除いた残りを、幹事以外で均等に割る
+  const others = people - 1;
+  const rest = total - (boss > 0 ? boss : 0) - (boss < 0 ? boss : 0) ;
+  const perOther = Math.ceil(Math.max(0, (total - boss) / people) / unit) * unit;
+  const collected = perOther * others;
+  const bossPay = total - collected;
+
+  let html = '<div class="note">1人あたり(幹事以外 ' + others + '人)</div>' +
+             '<div class="big">' + yen(perOther) + '</div>' +
+             '<p class="note">幹事の支払い: <b>' + yen(bossPay) + '</b></p>';
+  if(bossPay < 0){
+    html += '<p class="err">集金額が合計を ' + yen(-bossPay) + ' 上回ります(お釣り分)。</p>';
+  }else{
+    html += '<p class="note">集金合計 ' + yen(collected) + ' / 合計 ' + yen(total) + '</p>';
+  }
+  out.innerHTML = html;
+}
+['total','people','round','boss'].forEach(id => $(id).addEventListener('input', calc));
+calc();
+</script>
+</body>
+</html>
