@@ -129,7 +129,7 @@ const vib = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) 
 const A = .3, B = .75;                                 // 目が(閉→普通→見開き)に切り替わるゲージ位置
 let st = "start", px, tx, gauge, items, spawnT, t0, shake, nod, lid, alpha, stage, floaters, zzz, bursts;
 let walk = 0, vxs = 0, winT = 0, winTime = 0, drinkPop = 0, flash = 0, hitstop = 0, kaT = 0, blinkT = 0, nextBlink = 3, best = 0;
-try { best = +localStorage.getItem("kaigan_best") || 0; } catch (e) {}
+try { if (/[?&]reset/.test(location.search)) localStorage.removeItem("kaigan_best"); best = +localStorage.getItem("kaigan_best") || 0; } catch (e) {}
 const stageOf = g => g >= B ? 2 : g >= A ? 1 : 0;
 
 function reset() {
