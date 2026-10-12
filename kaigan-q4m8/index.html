@@ -28,7 +28,6 @@
   .rules { display:grid; grid-template-columns:auto 1fr; gap:8px 12px; text-align:left; max-width:22em; font-size:clamp(13px,3.7vw,16px); line-height:1.5; color:#f1e6d0;
     background:rgba(0,0,0,.35); border:1px solid rgba(244,213,141,.35); border-radius:8px; padding:12px 16px; }
   .rules b { font-size:1.4em; line-height:1; text-align:center; }
-  .best { font-family:var(--brush); color:#e9c46a; font-size:16px; min-height:1.2em; }
   button { font-family:var(--brush); font-size:28px; padding:12px 52px; border:0; border-radius:6px; cursor:pointer; letter-spacing:.3em;
     background:#c1121f; color:#fff2e0; box-shadow:0 0 0 3px #f4d58d inset, 0 6px 0 #5a0a10; }
   button:active { transform:translateY(3px); box-shadow:0 0 0 3px #f4d58d inset, 0 3px 0 #5a0a10; }
@@ -49,7 +48,6 @@
     <b>💤</b><span>眠気に当たるとゲージ大幅ダウン</span>
     <b>🌀</b><span>ゲージが満ちると、チャクラが開く</span>
   </div>
-  <div class="best" id="best"></div>
   <button id="go">始 め</button>
 </div>
 <div class="ov hidden" id="over">
@@ -128,8 +126,7 @@ const vib = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) 
 /* ================= 状態 ================= */
 const A = .3, B = .75;                                 // 目が(閉→普通→見開き)に切り替わるゲージ位置
 let st = "start", px, tx, gauge, items, spawnT, t0, shake, nod, lid, alpha, stage, floaters, zzz, bursts;
-let walk = 0, vxs = 0, winT = 0, winTime = 0, drinkPop = 0, flash = 0, hitstop = 0, kaT = 0, blinkT = 0, nextBlink = 3, best = 0;
-try { best = +localStorage.getItem("kaigan_best") || 0; } catch (e) {}
+let walk = 0, vxs = 0, winT = 0, winTime = 0, drinkPop = 0, flash = 0, hitstop = 0, kaT = 0, blinkT = 0, nextBlink = 3;
 const stageOf = g => g >= B ? 2 : g >= A ? 1 : 0;
 
 function reset() {
@@ -148,10 +145,8 @@ function setGauge(v) {
 }
 function win() {
   st = "win"; winT = 0; winTime = (performance.now() - t0) / 1000; items = []; stage = 2; sWin(); vib([80, 60, 200]);
-  let nb = !best || winTime < best;
-  if (nb) { best = winTime; try { localStorage.setItem("kaigan_best", best); } catch (e) {} }
   setTimeout(() => {
-    $("res").innerHTML = `到達 ${winTime.toFixed(1)} 秒` + (nb ? "<br>★ 最速記録" : `<br><span style="font-size:.7em">最速 ${best.toFixed(1)} 秒</span>`);
+    $("res").innerHTML = `到達 ${winTime.toFixed(1)} 秒`;
     $("over").classList.remove("hidden");
   }, 6500);
 }
@@ -408,7 +403,6 @@ function begin() {
   reset();
 }
 $("go").onclick = begin; $("again").onclick = begin;
-$("best").textContent = best ? `最速記録 ${best.toFixed(1)} 秒` : "";
 px = tx = W / 2; gauge = .1; items = []; floaters = []; zzz = []; bursts = []; alpha = [1, 0, 0]; stage = 0; nod = 0; shake = 0; lid = 0;
 if (document.fonts && document.fonts.load) document.fonts.load('40px "Yuji Boku"', "開眼チャクラ解放カッ");
 requestAnimationFrame(frame);
