@@ -26,6 +26,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html ads.txt robots.txt _site/
+          cp -r dokkiri-x7k2 _site/
       - uses: actions/configure-pages@v5
         with:
           enablement: true
