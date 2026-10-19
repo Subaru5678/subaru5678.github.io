@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>性格タイプ診断</title>
+<meta name="description" content="8つの質問に答えるだけ。あなたの性格タイプを診断します。">
+<style>
+  :root { --bg:#f7f5f4; --card:#fff; --text:#221c1a; --dim:#7a706b; --accent:#3f6fc9; --line:#e6e0dd; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font-family:'Hiragino Sans','Noto Sans JP',system-ui,sans-serif; display:flex; justify-content:center; padding:20px 16px; }
+  main { width:100%; max-width:480px; }
+  .card { background:var(--card); border-radius:16px; padding:28px 22px; box-shadow:0 2px 12px rgba(0,0,0,.06); }
+  h1 { font-size:24px; margin:0 0 8px; text-align:center; }
+  p.lead { color:var(--dim); text-align:center; margin:0 0 24px; line-height:1.7; }
+  button { font:inherit; cursor:pointer; border:0; }
+  .btn { display:block; width:100%; padding:15px; border-radius:12px; background:var(--accent); color:#fff; font-weight:700; font-size:16px; }
+  .btn.sub { background:#fff; color:var(--accent); border:2px solid var(--accent); margin-top:10px; }
+  .progress { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin-bottom:6px; }
+  .progress i { display:block; height:100%; width:0; background:var(--accent); transition:width .3s; }
+  .count { text-align:right; font-size:12px; color:var(--dim); margin-bottom:18px; }
+  .q { font-size:19px; font-weight:700; line-height:1.6; margin:0 0 20px; }
+  .opt { display:block; width:100%; text-align:left; padding:14px 16px; margin-bottom:10px; border-radius:12px;
+    background:#fff; border:2px solid var(--line); color:var(--text); font-size:15px; line-height:1.5; transition:border-color .15s, background .15s; }
+  .opt:hover, .opt:active { border-color:var(--accent); background:#f1f5fd; }
+  .emoji { font-size:64px; text-align:center; }
+  .type { font-size:13px; color:var(--dim); text-align:center; margin-top:4px; }
+  .name { font-size:26px; font-weight:800; text-align:center; margin:4px 0 16px; }
+  .desc { line-height:1.8; margin:0 0 16px; }
+  .meta { background:var(--bg); border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.7; margin-bottom:8px; }
+  .meta b { color:var(--accent); }
+  .bars { margin:18px 0 22px; }
+  .bar { display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px; }
+  .bar span:first-child { width:96px; flex:none; }
+  .bar .track { flex:1; height:8px; background:var(--line); border-radius:4px; overflow:hidden; }
+  .bar .track i { display:block; height:100%; background:var(--accent); }
+  .bar span:last-child { width:36px; text-align:right; color:var(--dim); }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="start" class="card">
+    <div class="emoji">🔮</div>
+    <h1>性格タイプ診断</h1>
+    <p class="lead">8つの質問に直感で答えてください。<br>あなたのタイプがわかります(約1分)。</p>
+    <button class="btn" id="startBtn">診断スタート</button>
+  </section>
+
+  <section id="quiz" class="card" hidden>
+    <div class="progress"><i id="bar"></i></div>
+    <div class="count" id="count"></div>
+    <p class="q" id="q"></p>
+    <div id="opts"></div>
+  </section>
+
+  <section id="result" class="card" hidden>
+    <div class="emoji" id="rEmoji"></div>
+    <div class="type">あなたのタイプは…</div>
+    <div class="name" id="rName"></div>
+    <p class="desc" id="rDesc"></p>
+    <div class="meta"><b>強み</b>:<span id="rGood"></span></div>
+    <div class="meta"><b>気をつけたい点</b>:<span id="rBad"></span></div>
+    <div class="bars" id="rBars"></div>
+    <button class="btn" id="shareBtn">結果をシェアする</button>
+    <button class="btn sub" id="retryBtn">もう一度診断する</button>
+  </section>
+</main>
+
+<script>
+/* ===== 診断データ(ここを書き換えると別テーマの診断になります) ===== */
+const TYPES = {
+  A: { emoji:'🔥', name:'情熱リーダー型',
+       desc:'思い立ったらすぐ行動する推進力の持ち主。周りを巻き込みながら、前へ前へと進んでいきます。',
+       good:'決断が早く、場を盛り上げるのが得意', bad:'勢い任せで、細部を見落としがち' },
+  B: { emoji:'🌊', name:'おだやか調整型',
+       desc:'誰とでも自然に打ち解け、場の空気をやわらげる存在。人の気持ちを察するのが上手です。',
+       good:'聞き上手で、チームの潤滑油になれる', bad:'自分の意見を後回しにしがち' },
+  C: { emoji:'🧭', name:'冷静分析型',
+       desc:'物事を一歩引いて見て、筋道を立てて考える慎重派。確実に成果を出すタイプです。',
+       good:'論理的で、ミスや無駄を見つけるのが得意', bad:'考えすぎて動き出しが遅れがち' },
+  D: { emoji:'🌈', name:'自由発想型',
+       desc:'ひらめきと好奇心のかたまり。ほかの人が思いつかないアイデアで周りを驚かせます。',
+       good:'発想力があり、新しいことを楽しめる', bad:'飽きっぽく、継続が苦手なことも' }
+};
+
+/* 各選択肢の key は TYPES のキー。選んだタイプに1点入ります */
+const QUESTIONS = [
+  { q:'休日の朝、目が覚めた。まず何をする?', o:[
+    ['A','とりあえず外に出かける'], ['B','誰かに連絡してみる'],
+    ['C','今日の予定を整理する'], ['D','ふと思いついたことを始める']] },
+  { q:'友達との旅行。あなたの役割は?', o:[
+    ['A','行き先をどんどん決める係'], ['B','みんなの希望を聞いてまとめる係'],
+    ['C','スケジュールと予算を管理する係'], ['D','変わった穴場を見つけてくる係']] },
+  { q:'トラブルが起きたとき、最初にすることは?', o:[
+    ['A','とにかく動いて対処する'], ['B','まわりの人を落ち着かせる'],
+    ['C','原因を冷静に探る'], ['D','別のやり方がないか考える']] },
+  { q:'ほめられてうれしいのはどれ?', o:[
+    ['A','「頼りになる!」'], ['B','「話しやすいね」'],
+    ['C','「しっかりしてるね」'], ['D','「発想がおもしろい!」']] },
+  { q:'買い物でのスタイルは?', o:[
+    ['A','気に入ったらその場で即決'], ['B','一緒にいる人の意見も参考にする'],
+    ['C','比較してから一番コスパのいいものを買う'], ['D','珍しいもの・ほかにないものを選ぶ']] },
+  { q:'新しい環境に入ったとき、あなたは?', o:[
+    ['A','自分から積極的に話しかける'], ['B','話しかけられるのを待ちつつ笑顔でいる'],
+    ['C','まず様子をよく観察する'], ['D','自分のペースで気になることを探索する']] },
+  { q:'理想の働き方・過ごし方は?', o:[
+    ['A','目標に向かってガンガン進む'], ['B','みんなで協力して穏やかに'],
+    ['C','計画どおりに着実に'], ['D','自由に、好きなことを軸に']] },
+  { q:'友達からよく言われる言葉は?', o:[
+    ['A','「行動力あるよね」'], ['B','「優しいよね」'],
+    ['C','「落ち着いてるよね」'], ['D','「ちょっと変わってるよね」']] }
+];
+/* ================================================================ */
+
+const $ = id => document.getElementById(id);
+const show = id => ['start','quiz','result'].forEach(s => $(s).hidden = s !== id);
+let idx = 0, score = {}, lastTop = null;
+
+function reset() { idx = 0; score = Object.fromEntries(Object.keys(TYPES).map(k => [k, 0])); }
+
+function render() {
+  const item = QUESTIONS[idx];
+  $('q').textContent = item.q;
+  $('count').textContent = `${idx + 1} / ${QUESTIONS.length}`;
+  $('bar').style.width = (idx / QUESTIONS.length * 100) + '%';
+  const box = $('opts'); box.innerHTML = '';
+  item.o.forEach(([key, label]) => {
+    const b = document.createElement('button');
+    b.className = 'opt'; b.textContent = label;
+    b.onclick = () => { score[key]++; idx++; idx < QUESTIONS.length ? render() : finish(); };
+    box.appendChild(b);
+  });
+}
+
+function finish() {
+  // 同点のときはタイプ定義順で先のものを採用
+  const keys = Object.keys(TYPES);
+  lastTop = keys.reduce((a, b) => score[b] > score[a] ? b : a, keys[0]);
+  const t = TYPES[lastTop];
+  $('rEmoji').textContent = t.emoji; $('rName').textContent = t.name; $('rDesc').textContent = t.desc;
+  $('rGood').textContent = t.good; $('rBad').textContent = t.bad;
+  $('rBars').innerHTML = keys.map(k => {
+    const p = Math.round(score[k] / QUESTIONS.length * 100);
+    return `<div class="bar"><span>${TYPES[k].emoji} ${TYPES[k].name.replace('型','')}</span>` +
+           `<div class="track"><i style="width:${p}%"></i></div><span>${p}%</span></div>`;
+  }).join('');
+  show('result'); window.scrollTo(0, 0);
+}
+
+$('startBtn').onclick = () => { reset(); show('quiz'); render(); };
+$('retryBtn').onclick = () => { reset(); show('quiz'); render(); window.scrollTo(0, 0); };
+$('shareBtn').onclick = async () => {
+  const text = `私の性格タイプは「${TYPES[lastTop].name}」でした ${TYPES[lastTop].emoji}`;
+  const data = { title:'性格タイプ診断', text, url:location.href };
+  try {
+    if (navigator.share) await navigator.share(data);
+    else { await navigator.clipboard.writeText(`${text}\n${location.href}`); $('shareBtn').textContent = 'コピーしました!'; }
+  } catch (e) { /* キャンセル時は何もしない */ }
+};
+</script>
+</body>
+</html>
