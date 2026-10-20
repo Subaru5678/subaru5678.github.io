@@ -136,19 +136,27 @@ function buildMsgs(p){
   return out;
 }
 
-async function ask(p){
+const ready = q => { const r = $('#set-' + q.id); return r.querySelector('.en').checked && r.querySelector('.key').value.trim(); };
+
+// エラー時は、まだ失敗していない別のAIが代わりに答える（さらに失敗すれば次へ）
+async function ask(p, failed = new Set(), forName = ''){
   const row = $('#set-' + p.id);
   if (!row.querySelector('.en').checked) return;
   const key = row.querySelector('.key').value.trim();
   const model = row.querySelector('.model').value.trim() || p.model;
+  const label = forName ? `${p.name}（${forName}の代わり）` : p.name;
   if (!key) { bubble('err', p.name, 'APIキーが未設定です（設定から入力）', p.id); return; }
-  const el = bubble('wait', p.name, '考え中…', p.id);
+  const el = bubble('wait', label, '考え中…', p.id);
   try {
     const out = await p.call(key, model, buildMsgs(p));
     transcript.push({ who:p.id, text:out });
     el.className = 'm c-' + p.id; el.querySelector('.b').textContent = out;
   } catch (e) {
-    el.className = 'm err c-' + p.id; el.querySelector('.b').textContent = 'エラー: ' + e.message;
+    failed.add(p.id);
+    const next = PROVIDERS.find(q => ready(q) && !failed.has(q.id));
+    el.className = 'm err c-' + p.id;
+    el.querySelector('.b').textContent = 'エラー: ' + e.message + (next ? `\n→ ${next.name} に切り替えます` : '');
+    if (next) await ask(next, failed, forName || p.name);
   }
   $('#log').scrollTop = $('#log').scrollHeight;
 }
@@ -161,7 +169,7 @@ $('#form').onsubmit = async e => {
   transcript.push({ who:'user', text });
   bubble('user', 'あなた', text);
   if ($('#seq').checked) for (const p of PROVIDERS) await ask(p);
-  else await Promise.all(PROVIDERS.map(ask));
+  else await Promise.all(PROVIDERS.map(p => ask(p)));
   $('#send').disabled = false; $('#q').focus();
 };
 $('#q').onkeydown = e => {
