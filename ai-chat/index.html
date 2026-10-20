@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>マルチAIチャット</title>
+<style>
+  :root{ --bg:#f7f5f4; --card:#fff; --ink:#221c1a; --mute:#7a706b; --line:#e4dfdc; --accent:#3f6fc9; }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#16140f; --card:#211e19; --ink:#efe9e4; --mute:#a39a93; --line:#37322c; --accent:#7ea2ec; }
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; height:100vh; height:100dvh; display:flex; flex-direction:column;
+    font:15px/1.6 'Hiragino Sans','Noto Sans JP',system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  header{ display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--line); }
+  header h1{ font-size:16px; margin:0; flex:1; }
+  button{ font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--ink);
+    border-radius:8px; padding:6px 12px; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
+  button:disabled{ opacity:.5; cursor:default; }
+  #cols{ flex:1; min-height:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:10px 16px; }
+  .col{ display:flex; flex-direction:column; min-height:0; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+  .col.off{ opacity:.45; }
+  .head{ padding:10px; border-bottom:1px solid var(--line); display:grid; gap:6px; }
+  .head label.on{ display:flex; align-items:center; gap:6px; font-weight:700; }
+  .head input[type=text],.head input[type=password]{ width:100%; font:inherit; font-size:13px; padding:5px 8px;
+    border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); }
+  .log{ flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .msg{ white-space:pre-wrap; word-break:break-word; padding:8px 12px; border-radius:10px; max-width:92%; }
+  .msg.user{ align-self:flex-end; background:var(--accent); color:#fff; }
+  .msg.ai{ align-self:flex-start; background:var(--bg); border:1px solid var(--line); }
+  .msg.err{ color:#c0392b; }
+  .msg.wait{ color:var(--mute); }
+  form{ display:flex; gap:8px; padding:10px 16px 14px; }
+  textarea{ flex:1; font:inherit; resize:none; height:56px; padding:8px 10px; border:1px solid var(--line);
+    border-radius:10px; background:var(--card); color:var(--ink); }
+  .note{ font-size:12px; color:var(--mute); padding:0 16px 8px; }
+  @media (max-width:760px){ #cols{ grid-template-columns:1fr; overflow-y:auto; } .col{ min-height:340px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>マルチAIチャット</h1>
+  <button id="clear" type="button">会話をリセット</button>
+</header>
+<div id="cols"></div>
+<form id="form">
+  <textarea id="q" placeholder="すべてのAIに同時に送信（Enterで送信 / Shift+Enterで改行）"></textarea>
+  <button class="primary" id="send">送信</button>
+</form>
+<div class="note">APIキーはこのブラウザのlocalStorageにのみ保存され、各社のAPIへ直接送信されます（当サイトのサーバーは経由しません）。モデル名は自由に変更できます。</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const asJson = r => r.json().then(j => { if (!r.ok) throw new Error(j.error?.message || JSON.stringify(j)); return j; });
+
+// 各社のAPI呼び出し。msgs = [{role:'user'|'assistant', content}]
+const PROVIDERS = [
+  { id:'claude', name:'Claude', model:'claude-sonnet-5-5',
+    call:(key, model, msgs) => fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'x-api-key':key, 'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true' },
+      body:JSON.stringify({ model, max_tokens:2048, messages:msgs })
+    }).then(asJson).then(j => j.content.map(c => c.text || '').join('')) },
+  { id:'openai', name:'ChatGPT', model:'gpt-4o',
+    call:(key, model, msgs) => fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', authorization:'Bearer ' + key },
+      body:JSON.stringify({ model, messages:msgs })
+    }).then(asJson).then(j => j.choices[0].message.content) },
+  { id:'gemini', name:'Gemini', model:'gemini-2.5-flash',
+    call:(key, model, msgs) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'x-goog-api-key':key },
+      body:JSON.stringify({ contents:msgs.map(m => ({ role:m.role === 'user' ? 'user' : 'model', parts:[{ text:m.content }] })) })
+    }).then(asJson).then(j => j.candidates[0].content.parts.map(p => p.text || '').join('')) },
+];
+
+const store = {
+  get(k, d){ try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch {} },
+};
+
+const history = {};
+for (const p of PROVIDERS) {
+  history[p.id] = [];
+  const el = document.createElement('div');
+  el.className = 'col'; el.id = 'col-' + p.id;
+  el.innerHTML = `
+    <div class="head">
+      <label class="on"><input type="checkbox" class="en"> ${p.name}</label>
+      <input type="password" class="key" placeholder="APIキー" autocomplete="off">
+      <input type="text" class="model" placeholder="モデル名">
+    </div>
+    <div class="log"></div>`;
+  $('#cols').append(el);
+  const en = el.querySelector('.en'), key = el.querySelector('.key'), model = el.querySelector('.model');
+  en.checked = store.get(p.id + '.on', '1') === '1';
+  key.value = store.get(p.id + '.key', '');
+  model.value = store.get(p.id + '.model', p.model);
+  const sync = () => el.classList.toggle('off', !en.checked);
+  sync();
+  en.onchange = () => { store.set(p.id + '.on', en.checked ? '1' : '0'); sync(); };
+  key.onchange = () => store.set(p.id + '.key', key.value.trim());
+  model.onchange = () => store.set(p.id + '.model', model.value.trim());
+}
+
+function add(log, cls, text){
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls; d.textContent = text;
+  log.append(d); log.scrollTop = log.scrollHeight;
+  return d;
+}
+
+async function ask(p, text){
+  const el = $('#col-' + p.id);
+  if (!el.querySelector('.en').checked) return;
+  const log = el.querySelector('.log');
+  const key = el.querySelector('.key').value.trim();
+  const model = el.querySelector('.model').value.trim() || p.model;
+  add(log, 'user', text);
+  if (!key) { add(log, 'ai err', 'APIキーを入力してください'); return; }
+  const wait = add(log, 'ai wait', '考え中…');
+  const msgs = [...history[p.id], { role:'user', content:text }];
+  try {
+    const out = await p.call(key, model, msgs);
+    history[p.id] = [...msgs, { role:'assistant', content:out }];
+    wait.className = 'msg ai'; wait.textContent = out;
+  } catch (e) {
+    wait.className = 'msg ai err'; wait.textContent = 'エラー: ' + e.message;
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+$('#form').onsubmit = async e => {
+  e.preventDefault();
+  const text = $('#q').value.trim();
+  if (!text) return;
+  $('#q').value = ''; $('#send').disabled = true;
+  await Promise.all(PROVIDERS.map(p => ask(p, text)));
+  $('#send').disabled = false; $('#q').focus();
+};
+$('#q').onkeydown = e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#form').requestSubmit(); }
+};
+$('#clear').onclick = () => {
+  for (const p of PROVIDERS) { history[p.id] = []; $('#col-' + p.id + ' .log').innerHTML = ''; }
+};
+</script>
+</body>
+</html>
