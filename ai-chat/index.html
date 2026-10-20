@@ -68,7 +68,30 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const asJson = r => r.json().then(j => { if (!r.ok) throw new Error(j.error?.message || JSON.stringify(j)); return j; });
+const asJson = async r => {
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error?.message || j[0]?.error?.message || JSON.stringify(j) || r.statusText), { status:r.status });
+  return j;
+};
+
+// エラーの原因を日本語で説明する
+function explain(e, p){
+  const m = (e.message || '').toLowerCase(), st = e.status;
+  if (e instanceof TypeError || m.includes('failed to fetch') || m.includes('networkerror'))
+    return 'サーバーに接続できませんでした。ネット接続、広告ブロッカー/VPN/社内ネットワークによる遮断を確認してください。';
+  if (st === 400 && (m.includes('api key') || m.includes('api_key'))) return 'APIキーが正しくありません。コピー漏れや余計な空白がないか確認してください。';
+  if (st === 400 && (m.includes('model') || m.includes('not found'))) return 'モデル名が正しくないか、使えないモデルです。設定でモデル名を変更してください。';
+  if (st === 400) return 'リクエストが不正です。モデル名や会話内容を確認してください。';
+  if (st === 401) return 'APIキーが無効です。キーを取り直して設定に貼り直してください。';
+  if (st === 402) return 'クレジット不足です。無料モデル（:free が付くもの）に切り替えてください。';
+  if (st === 403) return 'このキーでは使えません。キーの権限、地域制限、またはモデルの利用条件を確認してください。';
+  if (st === 404) return 'モデル名が存在しません。設定でモデル名を確認してください（OpenRouterの無料モデルは入れ替わります）。';
+  if (st === 413) return '会話が長すぎます。「リセット」してから送り直してください。';
+  if (st === 429) return '無料枠の回数制限に達しました。しばらく待つか、他のAIを使ってください。';
+  if (st >= 500) return `${p.name}側のサーバーエラーです。時間をおいて再試行してください。`;
+  if (m.includes('content') || m.includes('undefined') || m.includes('candidates')) return '返答が空でした（安全フィルタなどでブロックされた可能性）。質問を変えてみてください。';
+  return '原因不明のエラーです。上のメッセージを確認してください。';
+}
 
 // 無料APIキーが取れるサービスのみ。msgs = [{role:'user'|'assistant', content}]
 const openaiLike = (url, extra = {}) => (key, model, msgs) => fetch(url, {
@@ -215,7 +238,7 @@ async function ask(p, failed = new Set(), forName = ''){
     failed.add(p.id); cooling[p.id] = Date.now() + COOL_MS;
     const next = PROVIDERS.find(q => ready(q) && !failed.has(q.id));
     el.className = 'm err c-' + p.id;
-    setBody(el, 'エラー: ' + e.message + (next ? `\n→ ${next.name} に切り替えます` : ''));
+    setBody(el, 'エラー' + (e.status ? ` (${e.status})` : '') + ': ' + e.message + '\n原因: ' + explain(e, p) + (next ? `\n→ ${next.name} に切り替えます` : ''));
     if (next) await ask(next, failed, forName || p.name);
   }
   $('#log').scrollTop = $('#log').scrollHeight;
