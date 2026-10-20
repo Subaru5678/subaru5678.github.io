@@ -35,8 +35,17 @@
   .m.user .b{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .m.err .b{ color:#c0392b; } .m.wait .b{ color:var(--mute); }
   .c-gemini .who{ color:#6a5acd; } .c-groq .who{ color:#e0702b; } .c-openrouter .who{ color:#2f8f6b; }
+  .b p{ margin:0 0 .6em; } .b p:last-child{ margin:0; }
+  .b pre{ margin:.5em 0; padding:8px 10px; background:var(--bg); border:1px solid var(--line); border-radius:8px; overflow-x:auto; white-space:pre; }
+  .b code{ font:12.5px/1.5 ui-monospace,Menlo,monospace; background:var(--bg); padding:1px 4px; border-radius:4px; }
+  .b pre code{ background:none; padding:0; }
+  .b ul,.b ol{ margin:.3em 0 .6em; padding-left:1.4em; }
+  .b h3,.b h4{ margin:.6em 0 .3em; font-size:1em; }
+  .sys{ align-self:center; font-size:12px; color:var(--mute); }
+  .m .tools{ margin:2px 4px 0; font-size:11px; }
+  .m .tools button{ padding:0 6px; font-size:11px; border-radius:5px; color:var(--mute); }
   form{ display:flex; gap:8px; padding:10px 16px 6px; }
-  textarea{ flex:1; font:inherit; resize:none; height:56px; padding:8px 10px; border:1px solid var(--line);
+  textarea{ flex:1; font:inherit; resize:none; height:56px; max-height:200px; padding:8px 10px; border:1px solid var(--line);
     border-radius:10px; background:var(--card); color:var(--ink); }
   .note{ font-size:12px; color:var(--mute); padding:0 16px 10px; }
   @media (max-width:560px){ .row{ grid-template-columns:1fr 1fr; } .row label{ grid-column:1/-1; } }
@@ -46,6 +55,7 @@
 <header>
   <h1>マルチAIグループチャット</h1>
   <button id="gear" type="button">設定</button>
+  <button id="save" type="button">保存</button>
   <button id="clear" type="button">リセット</button>
 </header>
 <div id="settings"></div>
@@ -114,15 +124,60 @@ $('#seq').onchange = e => store.set('seq', e.target.checked ? '1' : '0');
 $('#gear').onclick = () => $('#settings').classList.toggle('open');
 if (!PROVIDERS.some(p => store.get(p.id + '.key', ''))) $('#settings').classList.add('open');
 
-function bubble(cls, name, text, pid){
+const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// 簡易Markdown（先にHTMLをエスケープするので安全）
+function md(src){
+  const blocks = [];
+  let t = esc(src).replace(/```[^\n]*\n([\s\S]*?)```/g, (_, c) => { blocks.push(c); return `\u0000${blocks.length - 1}\u0000`; });
+  const inline = x => x.replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const out = t.split(/\n{2,}/).map(par => {
+    const m = par.match(/^\u0000(\d+)\u0000$/);
+    if (m) return `<pre><code>${blocks[m[1]]}</code></pre>`;
+    const lines = par.split('\n');
+    if (lines.every(l => /^\s*[-*] /.test(l))) return '<ul>' + lines.map(l => '<li>' + inline(l.replace(/^\s*[-*] /,'')) + '</li>').join('') + '</ul>';
+    if (lines.every(l => /^\s*\d+[.)] /.test(l))) return '<ol>' + lines.map(l => '<li>' + inline(l.replace(/^\s*\d+[.)] /,'')) + '</li>').join('') + '</ol>';
+    const h = par.match(/^#{1,4} (.+)$/);
+    if (h) return '<h4>' + inline(h[1]) + '</h4>';
+    return '<p>' + inline(lines.join('<br>')) + '</p>';
+  }).join('');
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => `<pre><code>${blocks[i]}</code></pre>`);
+}
+
+function bubble(cls, name, text, pid, raw){
   const d = document.createElement('div');
   d.className = 'm ' + cls + (pid ? ' c-' + pid : '');
   d.innerHTML = '<div class="who"></div><div class="b"></div>';
   d.querySelector('.who').textContent = name;
-  d.querySelector('.b').textContent = text;
+  setBody(d, text, raw);
   $('#log').append(d); $('#log').scrollTop = $('#log').scrollHeight;
   return d;
 }
+function setBody(d, text, raw){
+  const b = d.querySelector('.b');
+  if (raw) { b.innerHTML = md(text); d.querySelector('.tools')?.remove();
+    const t = document.createElement('div'); t.className = 'tools';
+    t.innerHTML = '<button type="button">コピー</button>';
+    t.firstChild.onclick = () => { navigator.clipboard?.writeText(text); t.firstChild.textContent = 'コピーしました'; };
+    d.append(t);
+  } else b.textContent = text;
+}
+function note(text){
+  const d = document.createElement('div'); d.className = 'sys'; d.textContent = text;
+  $('#log').append(d); $('#log').scrollTop = $('#log').scrollHeight;
+}
+
+// 失敗したAIは少しの間お休み（回数制限の連打を避ける）
+const COOL_MS = 60000, cooling = {};
+const cool = id => Math.max(0, Math.ceil(((cooling[id] || 0) - Date.now()) / 1000));
+
+// 会話の保存と復元
+const save = () => store.set('transcript', JSON.stringify(transcript.slice(-60)));
+try { for (const t of JSON.parse(store.get('transcript', '[]'))) {
+  transcript.push(t);
+  if (t.who === 'user') bubble('user', 'あなた', t.text);
+  else if (byId[t.who]) bubble('', byId[t.who].name, t.text, t.who, true);
+} } catch {}
 
 // グループ全体の発言を、そのAI視点のmessages配列に直す（他AIの発言は「[名前] …」としてuser側に入れる）
 function buildMsgs(p){
@@ -136,7 +191,7 @@ function buildMsgs(p){
   return out;
 }
 
-const ready = q => { const r = $('#set-' + q.id); return r.querySelector('.en').checked && r.querySelector('.key').value.trim(); };
+const ready = q => { const r = $('#set-' + q.id); return r.querySelector('.en').checked && r.querySelector('.key').value.trim() && !cool(q.id); };
 
 // エラー時は、まだ失敗していない別のAIが代わりに答える（さらに失敗すれば次へ）
 async function ask(p, failed = new Set(), forName = ''){
@@ -145,17 +200,18 @@ async function ask(p, failed = new Set(), forName = ''){
   const key = row.querySelector('.key').value.trim();
   const model = row.querySelector('.model').value.trim() || p.model;
   const label = forName ? `${p.name}（${forName}の代わり）` : p.name;
+  if (!forName && key && cool(p.id)) { note(`${p.name} は一時休止中（あと${cool(p.id)}秒）`); return; }
   if (!key) { bubble('err', p.name, 'APIキーが未設定です（設定から入力）', p.id); return; }
   const el = bubble('wait', label, '考え中…', p.id);
   try {
     const out = await p.call(key, model, buildMsgs(p));
     transcript.push({ who:p.id, text:out });
-    el.className = 'm c-' + p.id; el.querySelector('.b').textContent = out;
+    el.className = 'm c-' + p.id; setBody(el, out, true); save();
   } catch (e) {
-    failed.add(p.id);
+    failed.add(p.id); cooling[p.id] = Date.now() + COOL_MS;
     const next = PROVIDERS.find(q => ready(q) && !failed.has(q.id));
     el.className = 'm err c-' + p.id;
-    el.querySelector('.b').textContent = 'エラー: ' + e.message + (next ? `\n→ ${next.name} に切り替えます` : '');
+    setBody(el, 'エラー: ' + e.message + (next ? `\n→ ${next.name} に切り替えます` : ''));
     if (next) await ask(next, failed, forName || p.name);
   }
   $('#log').scrollTop = $('#log').scrollHeight;
@@ -166,7 +222,7 @@ $('#form').onsubmit = async e => {
   const text = $('#q').value.trim();
   if (!text) return;
   $('#q').value = ''; $('#send').disabled = true;
-  transcript.push({ who:'user', text });
+  transcript.push({ who:'user', text }); save();
   bubble('user', 'あなた', text);
   if ($('#seq').checked) for (const p of PROVIDERS) await ask(p);
   else await Promise.all(PROVIDERS.map(p => ask(p)));
@@ -175,7 +231,14 @@ $('#form').onsubmit = async e => {
 $('#q').onkeydown = e => {
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#form').requestSubmit(); }
 };
-$('#clear').onclick = () => { transcript.length = 0; $('#log').innerHTML = ''; };
+$('#q').oninput = e => { const q = e.target; q.style.height = '56px'; q.style.height = Math.min(q.scrollHeight, 200) + 'px'; };
+$('#clear').onclick = () => { transcript.length = 0; $('#log').innerHTML = ''; save(); };
+$('#save').onclick = () => {
+  const txt = transcript.map(t => `【${t.who === 'user' ? 'あなた' : byId[t.who].name}】\n${t.text}`).join('\n\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type:'text/plain' }));
+  a.download = 'ai-chat.txt'; a.click();
+};
 </script>
 </body>
 </html>
