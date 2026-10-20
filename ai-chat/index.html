@@ -119,6 +119,10 @@ const seqBox = document.createElement('label');
 seqBox.className = 'opt';
 seqBox.innerHTML = '<input type="checkbox" id="seq"> 順番に返答する（前のAIの発言を読んでから次のAIが答える）';
 $('#settings').append(seqBox);
+const spareNote = document.createElement('div');
+spareNote.className = 'opt';
+spareNote.textContent = 'チェックを外したAIは「予備」: キーが入っていれば、オンのAIがエラーのときだけ代わりに答えます。';
+$('#settings').append(spareNote);
 $('#seq').checked = store.get('seq', '0') === '1';
 $('#seq').onchange = e => store.set('seq', e.target.checked ? '1' : '0');
 $('#gear').onclick = () => $('#settings').classList.toggle('open');
@@ -191,12 +195,12 @@ function buildMsgs(p){
   return out;
 }
 
-const ready = q => { const r = $('#set-' + q.id); return r.querySelector('.en').checked && r.querySelector('.key').value.trim() && !cool(q.id); };
+const ready = q => { const r = $('#set-' + q.id); return !r.querySelector('.en').checked && r.querySelector('.key').value.trim() && !cool(q.id); };  // 予備＝オフでキーあり
 
-// エラー時は、まだ失敗していない別のAIが代わりに答える（さらに失敗すれば次へ）
+// エラー時は、オフにしてある予備のAIが代わりに答える（さらに失敗すれば次の予備へ）
 async function ask(p, failed = new Set(), forName = ''){
   const row = $('#set-' + p.id);
-  if (!row.querySelector('.en').checked) return;
+  if (!forName && !row.querySelector('.en').checked) return;
   const key = row.querySelector('.key').value.trim();
   const model = row.querySelector('.model').value.trim() || p.model;
   const label = forName ? `${p.name}（${forName}の代わり）` : p.name;
