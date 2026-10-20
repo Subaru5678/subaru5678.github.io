@@ -89,7 +89,7 @@ const asJson = async r => {
 function explain(e, p){
   const m = (e.message || '').toLowerCase(), st = e.status;
   if (e instanceof TypeError || m.includes('failed to fetch') || m.includes('networkerror'))
-    return 'サーバーに接続できませんでした。ネット接続、広告ブロッカー/VPN/社内ネットワークによる遮断を確認してください。';
+    return 'サーバーに接続できませんでした。アプリ内のプレビュー（ファイル表示）で開いていると通信が遮断されます。ChromeなどのブラウザでこのファイルまたはURLを開き直してください。それでも出る場合は、ネット接続・広告ブロッカー・VPNを確認してください。';
   if (st === 400 && (m.includes('api key') || m.includes('api_key'))) return 'APIキーが正しくありません。コピー漏れや余計な空白がないか確認してください。';
   if (st === 400 && (m.includes('model') || m.includes('not found'))) return 'モデル名が正しくないか、使えないモデルです。設定でモデル名を変更してください。';
   if (st === 400) return 'リクエストが不正です。モデル名や会話内容を確認してください。';
