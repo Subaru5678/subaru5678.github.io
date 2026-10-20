@@ -144,7 +144,7 @@ seqBox.innerHTML = '<input type="checkbox" id="seq"> 順番に返答する（前
 $('#settings').append(seqBox);
 const spareNote = document.createElement('div');
 spareNote.className = 'opt';
-spareNote.textContent = 'チェックを外したAIは「予備」: キーが入っていれば、オンのAIがエラーのときだけ代わりに答えます。';
+spareNote.textContent = 'AIは1つだけでも使えます（キーを入れたAIだけが参加）。チェックを外したAIは「予備」: キーが入っていれば、オンのAIがエラーのときだけ代わりに答えます。';
 $('#settings').append(spareNote);
 $('#seq').checked = store.get('seq', '0') === '1';
 $('#seq').onchange = e => store.set('seq', e.target.checked ? '1' : '0');
@@ -228,7 +228,7 @@ async function ask(p, failed = new Set(), forName = ''){
   const model = row.querySelector('.model').value.trim() || p.model;
   const label = forName ? `${p.name}（${forName}の代わり）` : p.name;
   if (!forName && key && cool(p.id)) { note(`${p.name} は一時休止中（あと${cool(p.id)}秒）`); return; }
-  if (!key) { bubble('err', p.name, 'APIキーが未設定です（設定から入力）', p.id); return; }
+  if (!key) return;  // キー未入力のAIは参加しない
   const el = bubble('wait', label, '考え中…', p.id);
   try {
     const out = await p.call(key, model, buildMsgs(p));
@@ -249,6 +249,10 @@ $('#form').onsubmit = async e => {
   const text = $('#q').value.trim();
   if (!text) return;
   $('#q').value = ''; $('#send').disabled = true;
+  if (!PROVIDERS.some(p => $('#set-' + p.id + ' .en').checked && $('#set-' + p.id + ' .key').value.trim())) {
+    $('#settings').classList.add('open'); note('APIキーが入っているAIがありません。1つ以上キーを入力してオンにしてください。');
+    $('#q').value = text; $('#send').disabled = false; return;
+  }
   transcript.push({ who:'user', text }); save();
   bubble('user', 'あなた', text);
   if ($('#seq').checked) for (const p of PROVIDERS) await ask(p);
