@@ -34,7 +34,7 @@
   .m.user{ align-self:flex-end; } .m.user .who{ text-align:right; }
   .m.user .b{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .m.err .b{ color:#c0392b; } .m.wait .b{ color:var(--mute); }
-  .c-claude .who{ color:#c26b3d; } .c-openai .who{ color:#2f8f6b; } .c-gemini .who{ color:#6a5acd; }
+  .c-gemini .who{ color:#6a5acd; } .c-groq .who{ color:#e0702b; } .c-openrouter .who{ color:#2f8f6b; }
   form{ display:flex; gap:8px; padding:10px 16px 6px; }
   textarea{ flex:1; font:inherit; resize:none; height:56px; padding:8px 10px; border:1px solid var(--line);
     border-radius:10px; background:var(--card); color:var(--ink); }
@@ -54,33 +54,30 @@
   <textarea id="q" placeholder="グループに送信（Enterで送信 / Shift+Enterで改行）"></textarea>
   <button class="primary" id="send">送信</button>
 </form>
-<div class="note">APIキーはこのブラウザのlocalStorageにのみ保存され、各社のAPIへ直接送信されます。AIは互いの発言も読めます。</div>
+<div class="note">APIキーはこのブラウザのlocalStorageにのみ保存され、各社のAPIへ直接送信されます。AIは互いの発言も読めます。無料枠には回数制限があり、OpenRouterの無料モデルは入れ替わるので、エラー時はモデル名を変更してください。</div>
 
 <script>
 const $ = s => document.querySelector(s);
 const asJson = r => r.json().then(j => { if (!r.ok) throw new Error(j.error?.message || JSON.stringify(j)); return j; });
 
-// 各社のAPI呼び出し。msgs = [{role:'user'|'assistant', content}]
+// 無料APIキーが取れるサービスのみ。msgs = [{role:'user'|'assistant', content}]
+const openaiLike = (url, extra = {}) => (key, model, msgs) => fetch(url, {
+  method:'POST',
+  headers:{ 'content-type':'application/json', authorization:'Bearer ' + key, ...extra },
+  body:JSON.stringify({ model, messages:msgs })
+}).then(asJson).then(j => j.choices[0].message.content);
+
 const PROVIDERS = [
-  { id:'claude', name:'Claude', model:'claude-sonnet-5-5',
-    call:(key, model, msgs) => fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{ 'content-type':'application/json', 'x-api-key':key, 'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true' },
-      body:JSON.stringify({ model, max_tokens:2048, messages:msgs })
-    }).then(asJson).then(j => j.content.map(c => c.text || '').join('')) },
-  { id:'openai', name:'ChatGPT', model:'gpt-4o',
-    call:(key, model, msgs) => fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{ 'content-type':'application/json', authorization:'Bearer ' + key },
-      body:JSON.stringify({ model, messages:msgs })
-    }).then(asJson).then(j => j.choices[0].message.content) },
-  { id:'gemini', name:'Gemini', model:'gemini-2.5-flash',
+  { id:'gemini', name:'Gemini', model:'gemini-2.5-flash', keyUrl:'https://aistudio.google.com/apikey',
     call:(key, model, msgs) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method:'POST',
       headers:{ 'content-type':'application/json', 'x-goog-api-key':key },
       body:JSON.stringify({ contents:msgs.map(m => ({ role:m.role === 'user' ? 'user' : 'model', parts:[{ text:m.content }] })) })
     }).then(asJson).then(j => j.candidates[0].content.parts.map(p => p.text || '').join('')) },
+  { id:'groq', name:'Groq (Llama)', model:'llama-3.3-70b-versatile', keyUrl:'https://console.groq.com/keys',
+    call:openaiLike('https://api.groq.com/openai/v1/chat/completions') },
+  { id:'openrouter', name:'OpenRouter', model:'meta-llama/llama-3.3-70b-instruct:free', keyUrl:'https://openrouter.ai/keys',
+    call:openaiLike('https://openrouter.ai/api/v1/chat/completions') },
 ];
 
 const store = {
@@ -96,7 +93,7 @@ const byId = Object.fromEntries(PROVIDERS.map(p => [p.id, p]));
 for (const p of PROVIDERS) {
   const row = document.createElement('div');
   row.className = 'row'; row.id = 'set-' + p.id;
-  row.innerHTML = `<label><input type="checkbox" class="en"> ${p.name}</label>
+  row.innerHTML = `<label><input type="checkbox" class="en"> <span>${p.name}<br><a href="${p.keyUrl}" target="_blank" rel="noopener" style="font-weight:400;font-size:11px">無料キー取得</a></span></label>
     <input type="password" class="key" placeholder="APIキー" autocomplete="off">
     <input type="text" class="model" placeholder="モデル名">`;
   $('#settings').append(row);
