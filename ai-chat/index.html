@@ -11,45 +11,50 @@
     :root{ --bg:#16140f; --card:#211e19; --ink:#efe9e4; --mute:#a39a93; --line:#37322c; --accent:#7ea2ec; }
   }
   *{ box-sizing:border-box; }
-  body{ margin:0; height:100vh; height:100dvh; display:flex; flex-direction:column;
+  body{ margin:0; height:100vh; height:100dvh; display:flex; flex-direction:column; max-width:760px; margin:0 auto;
     font:15px/1.6 'Hiragino Sans','Noto Sans JP',system-ui,sans-serif; background:var(--bg); color:var(--ink); }
-  header{ display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--line); }
+  header{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--line); }
   header h1{ font-size:16px; margin:0; flex:1; }
   button{ font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--ink);
     border-radius:8px; padding:6px 12px; }
   button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
   button:disabled{ opacity:.5; cursor:default; }
-  #cols{ flex:1; min-height:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:10px 16px; }
-  .col{ display:flex; flex-direction:column; min-height:0; background:var(--card); border:1px solid var(--line); border-radius:12px; }
-  .col.off{ opacity:.45; }
-  .head{ padding:10px; border-bottom:1px solid var(--line); display:grid; gap:6px; }
-  .head label.on{ display:flex; align-items:center; gap:6px; font-weight:700; }
-  .head input[type=text],.head input[type=password]{ width:100%; font:inherit; font-size:13px; padding:5px 8px;
-    border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); }
-  .log{ flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
-  .msg{ white-space:pre-wrap; word-break:break-word; padding:8px 12px; border-radius:10px; max-width:92%; }
-  .msg.user{ align-self:flex-end; background:var(--accent); color:#fff; }
-  .msg.ai{ align-self:flex-start; background:var(--bg); border:1px solid var(--line); }
-  .msg.err{ color:#c0392b; }
-  .msg.wait{ color:var(--mute); }
-  form{ display:flex; gap:8px; padding:10px 16px 14px; }
+  #settings{ display:none; padding:10px 16px; border-bottom:1px solid var(--line); gap:8px; }
+  #settings.open{ display:grid; }
+  .row{ display:grid; grid-template-columns:110px 1fr 1fr; gap:6px; align-items:center; }
+  .row label{ font-weight:700; display:flex; gap:6px; align-items:center; }
+  .row input[type=text],.row input[type=password]{ width:100%; font:inherit; font-size:13px; padding:5px 8px;
+    border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); }
+  .opt{ font-size:13px; color:var(--mute); display:flex; gap:6px; align-items:center; }
+  #log{ flex:1; min-height:0; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+  .m{ max-width:88%; }
+  .m .who{ font-size:12px; font-weight:700; margin:0 4px 2px; color:var(--mute); }
+  .m .b{ white-space:pre-wrap; word-break:break-word; padding:8px 12px; border-radius:12px;
+    background:var(--card); border:1px solid var(--line); }
+  .m.user{ align-self:flex-end; } .m.user .who{ text-align:right; }
+  .m.user .b{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .m.err .b{ color:#c0392b; } .m.wait .b{ color:var(--mute); }
+  .c-claude .who{ color:#c26b3d; } .c-openai .who{ color:#2f8f6b; } .c-gemini .who{ color:#6a5acd; }
+  form{ display:flex; gap:8px; padding:10px 16px 6px; }
   textarea{ flex:1; font:inherit; resize:none; height:56px; padding:8px 10px; border:1px solid var(--line);
     border-radius:10px; background:var(--card); color:var(--ink); }
-  .note{ font-size:12px; color:var(--mute); padding:0 16px 8px; }
-  @media (max-width:760px){ #cols{ grid-template-columns:1fr; overflow-y:auto; } .col{ min-height:340px; } }
+  .note{ font-size:12px; color:var(--mute); padding:0 16px 10px; }
+  @media (max-width:560px){ .row{ grid-template-columns:1fr 1fr; } .row label{ grid-column:1/-1; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>マルチAIチャット</h1>
-  <button id="clear" type="button">会話をリセット</button>
+  <h1>マルチAIグループチャット</h1>
+  <button id="gear" type="button">設定</button>
+  <button id="clear" type="button">リセット</button>
 </header>
-<div id="cols"></div>
+<div id="settings"></div>
+<div id="log"></div>
 <form id="form">
-  <textarea id="q" placeholder="すべてのAIに同時に送信（Enterで送信 / Shift+Enterで改行）"></textarea>
+  <textarea id="q" placeholder="グループに送信（Enterで送信 / Shift+Enterで改行）"></textarea>
   <button class="primary" id="send">送信</button>
 </form>
-<div class="note">APIキーはこのブラウザのlocalStorageにのみ保存され、各社のAPIへ直接送信されます（当サイトのサーバーは経由しません）。モデル名は自由に変更できます。</div>
+<div class="note">APIキーはこのブラウザのlocalStorageにのみ保存され、各社のAPIへ直接送信されます。AIは互いの発言も読めます。</div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -83,55 +88,72 @@ const store = {
   set(k, v){ try { localStorage.setItem(k, v); } catch {} },
 };
 
-const history = {};
+
+const transcript = [];   // { who:'user'|providerId, text }
+const byId = Object.fromEntries(PROVIDERS.map(p => [p.id, p]));
+
+// 設定パネル
 for (const p of PROVIDERS) {
-  history[p.id] = [];
-  const el = document.createElement('div');
-  el.className = 'col'; el.id = 'col-' + p.id;
-  el.innerHTML = `
-    <div class="head">
-      <label class="on"><input type="checkbox" class="en"> ${p.name}</label>
-      <input type="password" class="key" placeholder="APIキー" autocomplete="off">
-      <input type="text" class="model" placeholder="モデル名">
-    </div>
-    <div class="log"></div>`;
-  $('#cols').append(el);
-  const en = el.querySelector('.en'), key = el.querySelector('.key'), model = el.querySelector('.model');
+  const row = document.createElement('div');
+  row.className = 'row'; row.id = 'set-' + p.id;
+  row.innerHTML = `<label><input type="checkbox" class="en"> ${p.name}</label>
+    <input type="password" class="key" placeholder="APIキー" autocomplete="off">
+    <input type="text" class="model" placeholder="モデル名">`;
+  $('#settings').append(row);
+  const en = row.querySelector('.en'), key = row.querySelector('.key'), model = row.querySelector('.model');
   en.checked = store.get(p.id + '.on', '1') === '1';
   key.value = store.get(p.id + '.key', '');
   model.value = store.get(p.id + '.model', p.model);
-  const sync = () => el.classList.toggle('off', !en.checked);
-  sync();
-  en.onchange = () => { store.set(p.id + '.on', en.checked ? '1' : '0'); sync(); };
+  en.onchange = () => store.set(p.id + '.on', en.checked ? '1' : '0');
   key.onchange = () => store.set(p.id + '.key', key.value.trim());
   model.onchange = () => store.set(p.id + '.model', model.value.trim());
 }
+const seqBox = document.createElement('label');
+seqBox.className = 'opt';
+seqBox.innerHTML = '<input type="checkbox" id="seq"> 順番に返答する（前のAIの発言を読んでから次のAIが答える）';
+$('#settings').append(seqBox);
+$('#seq').checked = store.get('seq', '0') === '1';
+$('#seq').onchange = e => store.set('seq', e.target.checked ? '1' : '0');
+$('#gear').onclick = () => $('#settings').classList.toggle('open');
+if (!PROVIDERS.some(p => store.get(p.id + '.key', ''))) $('#settings').classList.add('open');
 
-function add(log, cls, text){
+function bubble(cls, name, text, pid){
   const d = document.createElement('div');
-  d.className = 'msg ' + cls; d.textContent = text;
-  log.append(d); log.scrollTop = log.scrollHeight;
+  d.className = 'm ' + cls + (pid ? ' c-' + pid : '');
+  d.innerHTML = '<div class="who"></div><div class="b"></div>';
+  d.querySelector('.who').textContent = name;
+  d.querySelector('.b').textContent = text;
+  $('#log').append(d); $('#log').scrollTop = $('#log').scrollHeight;
   return d;
 }
 
-async function ask(p, text){
-  const el = $('#col-' + p.id);
-  if (!el.querySelector('.en').checked) return;
-  const log = el.querySelector('.log');
-  const key = el.querySelector('.key').value.trim();
-  const model = el.querySelector('.model').value.trim() || p.model;
-  add(log, 'user', text);
-  if (!key) { add(log, 'ai err', 'APIキーを入力してください'); return; }
-  const wait = add(log, 'ai wait', '考え中…');
-  const msgs = [...history[p.id], { role:'user', content:text }];
-  try {
-    const out = await p.call(key, model, msgs);
-    history[p.id] = [...msgs, { role:'assistant', content:out }];
-    wait.className = 'msg ai'; wait.textContent = out;
-  } catch (e) {
-    wait.className = 'msg ai err'; wait.textContent = 'エラー: ' + e.message;
+// グループ全体の発言を、そのAI視点のmessages配列に直す（他AIの発言は「[名前] …」としてuser側に入れる）
+function buildMsgs(p){
+  const out = [];
+  for (const t of transcript) {
+    const role = t.who === p.id ? 'assistant' : 'user';
+    const content = t.who === 'user' || t.who === p.id ? t.text : `[${byId[t.who].name}] ${t.text}`;
+    if (out.length && out[out.length - 1].role === role) out[out.length - 1].content += '\n\n' + content;
+    else out.push({ role, content });
   }
-  log.scrollTop = log.scrollHeight;
+  return out;
+}
+
+async function ask(p){
+  const row = $('#set-' + p.id);
+  if (!row.querySelector('.en').checked) return;
+  const key = row.querySelector('.key').value.trim();
+  const model = row.querySelector('.model').value.trim() || p.model;
+  if (!key) { bubble('err', p.name, 'APIキーが未設定です（設定から入力）', p.id); return; }
+  const el = bubble('wait', p.name, '考え中…', p.id);
+  try {
+    const out = await p.call(key, model, buildMsgs(p));
+    transcript.push({ who:p.id, text:out });
+    el.className = 'm c-' + p.id; el.querySelector('.b').textContent = out;
+  } catch (e) {
+    el.className = 'm err c-' + p.id; el.querySelector('.b').textContent = 'エラー: ' + e.message;
+  }
+  $('#log').scrollTop = $('#log').scrollHeight;
 }
 
 $('#form').onsubmit = async e => {
@@ -139,15 +161,16 @@ $('#form').onsubmit = async e => {
   const text = $('#q').value.trim();
   if (!text) return;
   $('#q').value = ''; $('#send').disabled = true;
-  await Promise.all(PROVIDERS.map(p => ask(p, text)));
+  transcript.push({ who:'user', text });
+  bubble('user', 'あなた', text);
+  if ($('#seq').checked) for (const p of PROVIDERS) await ask(p);
+  else await Promise.all(PROVIDERS.map(ask));
   $('#send').disabled = false; $('#q').focus();
 };
 $('#q').onkeydown = e => {
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#form').requestSubmit(); }
 };
-$('#clear').onclick = () => {
-  for (const p of PROVIDERS) { history[p.id] = []; $('#col-' + p.id + ' .log').innerHTML = ''; }
-};
+$('#clear').onclick = () => { transcript.length = 0; $('#log').innerHTML = ''; };
 </script>
 </body>
 </html>
