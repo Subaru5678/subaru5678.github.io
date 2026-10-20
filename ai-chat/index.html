@@ -13,19 +13,31 @@
   *{ box-sizing:border-box; }
   body{ margin:0; height:100vh; height:100dvh; display:flex; flex-direction:column; max-width:760px; margin:0 auto;
     font:15px/1.6 'Hiragino Sans','Noto Sans JP',system-ui,sans-serif; background:var(--bg); color:var(--ink); }
-  header{ display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--line); }
+  header{ display:flex; align-items:center; gap:6px; padding:8px 12px; border-bottom:1px solid var(--line); }
   header h1{ font-size:16px; margin:0; flex:1; }
   button{ font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--ink);
     border-radius:8px; padding:6px 12px; }
   button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
   button:disabled{ opacity:.5; cursor:default; }
-  #settings{ display:none; padding:10px 16px; border-bottom:1px solid var(--line); gap:8px; }
-  #settings.open{ display:grid; }
-  .row{ display:grid; grid-template-columns:110px 1fr 1fr; gap:6px; align-items:center; }
-  .row label{ font-weight:700; display:flex; gap:6px; align-items:center; }
-  .row input[type=text],.row input[type=password]{ width:100%; font:inherit; font-size:13px; padding:5px 8px;
-    border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); }
-  .opt{ font-size:13px; color:var(--mute); display:flex; gap:6px; align-items:center; }
+  header h1{ display:none; }
+  .chips{ display:flex; gap:6px; flex-wrap:wrap; flex:1; }
+  .chip{ display:flex; align-items:center; gap:6px; padding:3px 9px; border-radius:999px; font-size:12.5px; }
+  .chip i{ width:8px; height:8px; border-radius:50%; background:var(--line); }
+  .chip.ok i{ background:#2ea66a; } .chip.nokey i{ background:#e0a030; } .chip.spare i{ background:transparent; box-shadow:inset 0 0 0 2px #2ea66a; }
+  .chip.sel{ border-color:var(--accent); }
+  .tb{ padding:4px 9px; font-size:12px; color:var(--mute); }
+  .tb[aria-pressed=true]{ color:var(--accent); border-color:var(--accent); }
+  #pop{ display:none; position:absolute; z-index:5; left:16px; top:50px; width:min(340px,calc(100vw - 32px));
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; box-shadow:0 8px 24px #0003; gap:8px; }
+  #pop.open{ display:grid; }
+  #pop .row{ display:grid; gap:6px; }
+  #pop .row[hidden]{ display:none; }
+  #pop label.en-l{ font-weight:700; display:flex; gap:8px; align-items:center; }
+  #pop input[type=text],#pop input[type=password]{ width:100%; font:inherit; font-size:13px; padding:6px 8px;
+    border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); }
+  #pop .hint{ font-size:12px; color:var(--mute); }
+  #pop a{ color:var(--accent); }
+  #empty{ margin:auto; text-align:center; color:var(--mute); font-size:14px; max-width:320px; }
   #log{ flex:1; min-height:0; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
   .m{ max-width:88%; }
   .m .who{ font-size:12px; font-weight:700; margin:0 4px 2px; color:var(--mute); }
@@ -44,27 +56,26 @@
   .sys{ align-self:center; font-size:12px; color:var(--mute); }
   .m .tools{ margin:2px 4px 0; font-size:11px; }
   .m .tools button{ padding:0 6px; font-size:11px; border-radius:5px; color:var(--mute); }
-  form{ display:flex; gap:8px; padding:10px 16px 6px; }
+  form{ display:flex; gap:8px; padding:10px 16px 14px; }
+  body{ position:relative; }
   textarea{ flex:1; font:inherit; resize:none; height:56px; max-height:200px; padding:8px 10px; border:1px solid var(--line);
     border-radius:10px; background:var(--card); color:var(--ink); }
-  .note{ font-size:12px; color:var(--mute); padding:0 16px 10px; }
-  @media (max-width:560px){ .row{ grid-template-columns:1fr 1fr; } .row label{ grid-column:1/-1; } }
 </style>
 </head>
 <body>
 <header>
   <h1>マルチAIグループチャット</h1>
-  <button id="gear" type="button">設定</button>
-  <button id="save" type="button">保存</button>
-  <button id="clear" type="button">リセット</button>
+  <div class="chips" id="chips"></div>
+  <button class="tb" id="seq" type="button" aria-pressed="false" title="オンにすると、AIが順番に答え、後のAIは前のAIの発言を読んでから答えます">順番</button>
+  <button class="tb" id="save" type="button">保存</button>
+  <button class="tb" id="clear" type="button">リセット</button>
 </header>
-<div id="settings"></div>
-<div id="log"></div>
+<div id="pop"></div>
+<div id="log"><div id="empty">上のAI名を押してAPIキーを入れると始められます。<br>1つだけでOK。</div></div>
 <form id="form">
-  <textarea id="q" placeholder="グループに送信（Enterで送信 / Shift+Enterで改行）"></textarea>
+  <textarea id="q" placeholder="メッセージ（Enterで送信）"></textarea>
   <button class="primary" id="send">送信</button>
 </form>
-<div class="note">APIキーはこのブラウザのlocalStorageにのみ保存され、各社のAPIへ直接送信されます。AIは互いの発言も読めます。無料枠には回数制限があり、OpenRouterの無料モデルは入れ替わるので、エラー時はモデル名を変更してください。</div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -107,7 +118,7 @@ const PROVIDERS = [
       headers:{ 'content-type':'application/json', 'x-goog-api-key':key },
       body:JSON.stringify({ contents:msgs.map(m => ({ role:m.role === 'user' ? 'user' : 'model', parts:[{ text:m.content }] })) })
     }).then(asJson).then(j => j.candidates[0].content.parts.map(p => p.text || '').join('')) },
-  { id:'groq', name:'Groq (Llama)', model:'llama-3.3-70b-versatile', keyUrl:'https://console.groq.com/keys',
+  { id:'groq', name:'Groq', model:'llama-3.3-70b-versatile', keyUrl:'https://console.groq.com/keys',
     call:openaiLike('https://api.groq.com/openai/v1/chat/completions') },
   { id:'openrouter', name:'OpenRouter', model:'meta-llama/llama-3.3-70b-instruct:free', keyUrl:'https://openrouter.ai/keys',
     call:openaiLike('https://openrouter.ai/api/v1/chat/completions') },
@@ -122,34 +133,59 @@ const store = {
 const transcript = [];   // { who:'user'|providerId, text }
 const byId = Object.fromEntries(PROVIDERS.map(p => [p.id, p]));
 
-// 設定パネル
+// AIチップ（状態表示）と設定ポップオーバー
+const rowOf = id => $('#set-' + id);
+const hasKey = id => rowOf(id).querySelector('.key').value.trim();
+const isOn = id => rowOf(id).querySelector('.en').checked;
+let curPop = null;
 for (const p of PROVIDERS) {
   const row = document.createElement('div');
-  row.className = 'row'; row.id = 'set-' + p.id;
-  row.innerHTML = `<label><input type="checkbox" class="en"> <span>${p.name}<br><a href="${p.keyUrl}" target="_blank" rel="noopener" style="font-weight:400;font-size:11px">無料キー取得</a></span></label>
+  row.className = 'row'; row.id = 'set-' + p.id; row.hidden = true;
+  row.innerHTML = `<label class="en-l"><input type="checkbox" class="en"> ${p.name} を使う</label>
     <input type="password" class="key" placeholder="APIキー" autocomplete="off">
-    <input type="text" class="model" placeholder="モデル名">`;
-  $('#settings').append(row);
+    <input type="text" class="model" placeholder="モデル名">
+    <div class="hint"><a href="${p.keyUrl}" target="_blank" rel="noopener">無料キーを取得</a> ／ キーはこのブラウザ内にだけ保存されます。オフにしてキーを入れておくと、エラー時の予備になります。</div>`;
+  $('#pop').append(row);
+  const chip = document.createElement('button');
+  chip.type = 'button'; chip.className = 'chip'; chip.id = 'chip-' + p.id;
+  chip.innerHTML = `<i></i>${p.name}`;
+  chip.onclick = e => { e.stopPropagation(); openPop(p.id); };
+  $('#chips').append(chip);
   const en = row.querySelector('.en'), key = row.querySelector('.key'), model = row.querySelector('.model');
   en.checked = store.get(p.id + '.on', '1') === '1';
   key.value = store.get(p.id + '.key', '');
   model.value = store.get(p.id + '.model', p.model);
-  en.onchange = () => store.set(p.id + '.on', en.checked ? '1' : '0');
-  key.onchange = () => store.set(p.id + '.key', key.value.trim());
+  en.onchange = () => { store.set(p.id + '.on', en.checked ? '1' : '0'); refreshChips(); };
+  key.oninput = () => { store.set(p.id + '.key', key.value.trim()); refreshChips(); };
   model.onchange = () => store.set(p.id + '.model', model.value.trim());
 }
-const seqBox = document.createElement('label');
-seqBox.className = 'opt';
-seqBox.innerHTML = '<input type="checkbox" id="seq"> 順番に返答する（前のAIの発言を読んでから次のAIが答える）';
-$('#settings').append(seqBox);
-const spareNote = document.createElement('div');
-spareNote.className = 'opt';
-spareNote.textContent = 'AIは1つだけでも使えます（キーを入れたAIだけが参加）。チェックを外したAIは「予備」: キーが入っていれば、オンのAIがエラーのときだけ代わりに答えます。';
-$('#settings').append(spareNote);
-$('#seq').checked = store.get('seq', '0') === '1';
-$('#seq').onchange = e => store.set('seq', e.target.checked ? '1' : '0');
-$('#gear').onclick = () => $('#settings').classList.toggle('open');
-if (!PROVIDERS.some(p => store.get(p.id + '.key', ''))) $('#settings').classList.add('open');
+function refreshChips(){
+  for (const p of PROVIDERS) {
+    const c = $('#chip-' + p.id);
+    const st = isOn(p.id) ? (hasKey(p.id) ? 'ok' : 'nokey') : (hasKey(p.id) ? 'spare' : '');
+    c.className = 'chip ' + st + (curPop === p.id ? ' sel' : '');
+    c.title = { ok:'参加中', nokey:'オンですがキー未入力', spare:'予備（エラー時のみ代役）', '':'オフ' }[st];
+  }
+}
+function openPop(id){
+  const same = curPop === id;
+  closePop();
+  if (same) return;
+  curPop = id;
+  for (const p of PROVIDERS) rowOf(p.id).hidden = p.id !== id;
+  $('#pop').style.top = ($('header').offsetHeight + 4) + 'px';
+  $('#pop').classList.add('open'); refreshChips();
+  const k = rowOf(id).querySelector('.key'); if (!k.value) k.focus();
+}
+function closePop(){ $('#pop').classList.remove('open'); curPop = null; refreshChips(); }
+document.addEventListener('click', e => { if (!e.target.closest('#pop')) closePop(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); });
+refreshChips();
+
+let seq = store.get('seq', '0') === '1';
+const showSeq = () => $('#seq').setAttribute('aria-pressed', seq);
+$('#seq').onclick = () => { seq = !seq; store.set('seq', seq ? '1' : '0'); showSeq(); };
+showSeq();
 
 const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 // 簡易Markdown（先にHTMLをエスケープするので安全）
@@ -172,6 +208,7 @@ function md(src){
 }
 
 function bubble(cls, name, text, pid, raw){
+  $('#empty')?.remove();
   const d = document.createElement('div');
   d.className = 'm ' + cls + (pid ? ' c-' + pid : '');
   d.innerHTML = '<div class="who"></div><div class="b"></div>';
@@ -190,6 +227,7 @@ function setBody(d, text, raw){
   } else b.textContent = text;
 }
 function note(text){
+  $('#empty')?.remove();
   const d = document.createElement('div'); d.className = 'sys'; d.textContent = text;
   $('#log').append(d); $('#log').scrollTop = $('#log').scrollHeight;
 }
@@ -218,7 +256,7 @@ function buildMsgs(p){
   return out;
 }
 
-const ready = q => { const r = $('#set-' + q.id); return !r.querySelector('.en').checked && r.querySelector('.key').value.trim() && !cool(q.id); };  // 予備＝オフでキーあり
+const ready = q => !isOn(q.id) && hasKey(q.id) && !cool(q.id);  // 予備＝オフでキーあり
 
 // エラー時は、オフにしてある予備のAIが代わりに答える（さらに失敗すれば次の予備へ）
 async function ask(p, failed = new Set(), forName = ''){
@@ -250,12 +288,12 @@ $('#form').onsubmit = async e => {
   if (!text) return;
   $('#q').value = ''; $('#send').disabled = true;
   if (!PROVIDERS.some(p => $('#set-' + p.id + ' .en').checked && $('#set-' + p.id + ' .key').value.trim())) {
-    $('#settings').classList.add('open'); note('APIキーが入っているAIがありません。1つ以上キーを入力してオンにしてください。');
+    note('APIキーが入っているAIがありません。上のAI名を押してキーを入れてください。'); openPop(PROVIDERS[0].id);
     $('#q').value = text; $('#send').disabled = false; return;
   }
   transcript.push({ who:'user', text }); save();
   bubble('user', 'あなた', text);
-  if ($('#seq').checked) for (const p of PROVIDERS) await ask(p);
+  if (seq) for (const p of PROVIDERS) await ask(p);
   else await Promise.all(PROVIDERS.map(p => ask(p)));
   $('#send').disabled = false; $('#q').focus();
 };
@@ -263,7 +301,7 @@ $('#q').onkeydown = e => {
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#form').requestSubmit(); }
 };
 $('#q').oninput = e => { const q = e.target; q.style.height = '56px'; q.style.height = Math.min(q.scrollHeight, 200) + 'px'; };
-$('#clear').onclick = () => { transcript.length = 0; $('#log').innerHTML = ''; save(); };
+$('#clear').onclick = () => { transcript.length = 0; $('#log').innerHTML = '<div id="empty">会話をリセットしました。</div>'; save(); };
 $('#save').onclick = () => {
   const txt = transcript.map(t => `【${t.who === 'user' ? 'あなた' : byId[t.who].name}】\n${t.text}`).join('\n\n');
   const a = document.createElement('a');
