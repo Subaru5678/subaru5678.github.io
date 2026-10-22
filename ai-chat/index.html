@@ -112,17 +112,39 @@ const openaiLike = (url, extra = {}) => (key, model, msgs) => fetch(url, {
   body:JSON.stringify({ model, messages:msgs })
 }).then(asJson).then(j => j.choices[0].message.content);
 
+// モデル名が古くなったとき、各社の最新モデル一覧から使えるものを自動で選ぶ
+const ver = id => (id.match(/\d+(\.\d+)*/g) || ['0']).map(v => v.split('.').map(Number));
+const cmpVer = (a, b) => { const x = ver(a).flat(), y = ver(b).flat(); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (y[i] || 0) - (x[i] || 0); return 0; };
+const pick = (ids, prefer) => { for (const re of prefer) { const f = ids.filter(i => re.test(i)); if (f.length) return f[0]; } return ids[0]; };
+
 const PROVIDERS = [
-  { id:'gemini', name:'Gemini', model:'gemini-2.5-flash', keyUrl:'https://aistudio.google.com/apikey',
+  { id:'gemini', name:'Gemini', model:'gemini-3.8-flash', keyUrl:'https://aistudio.google.com/apikey',
     call:(key, model, msgs) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method:'POST',
       headers:{ 'content-type':'application/json', 'x-goog-api-key':key },
       body:JSON.stringify({ contents:msgs.map(m => ({ role:m.role === 'user' ? 'user' : 'model', parts:[{ text:m.content }] })) })
-    }).then(asJson).then(j => j.candidates[0].content.parts.map(p => p.text || '').join('')) },
+    }).then(asJson).then(j => j.candidates[0].content.parts.map(p => p.text || '').join('')),
+    resolve:async key => {
+      const j = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers:{ 'x-goog-api-key':key } }).then(asJson);
+      const ids = j.models.filter(m => m.supportedGenerationMethods?.includes('generateContent')).map(m => m.name.replace('models/', ''))
+        .filter(i => /^gemini-[\d.]+-flash$/.test(i)).sort(cmpVer);
+      return ids[0];
+    } },
   { id:'groq', name:'Groq', model:'llama-3.3-70b-versatile', keyUrl:'https://console.groq.com/keys',
-    call:openaiLike('https://api.groq.com/openai/v1/chat/completions') },
-  { id:'openrouter', name:'OpenRouter', model:'meta-llama/llama-3.3-70b-instruct:free', keyUrl:'https://openrouter.ai/keys',
-    call:openaiLike('https://openrouter.ai/api/v1/chat/completions') },
+    call:openaiLike('https://api.groq.com/openai/v1/chat/completions'),
+    resolve:async key => {
+      const j = await fetch('https://api.groq.com/openai/v1/models', { headers:{ authorization:'Bearer ' + key } }).then(asJson);
+      const ids = j.data.map(m => m.id).filter(i => !/whisper|guard|tts|orpheus|embed|safeguard/i.test(i)).sort(cmpVer);
+      return pick(ids, [/llama-3\.3-70b/, /gpt-oss-120b/, /70b|120b/]);
+    } },
+  { id:'openrouter', name:'OpenRouter', model:'google/gemma-4-31b-it:free', keyUrl:'https://openrouter.ai/keys',
+    call:openaiLike('https://openrouter.ai/api/v1/chat/completions'),
+    resolve:async () => {
+      const j = await fetch('https://openrouter.ai/api/v1/models').then(asJson);
+      const ids = j.data.filter(m => m.id.endsWith(':free') && (m.architecture?.output_modalities || ['text']).join() === 'text'
+        && !/safety|guard|embed|-vl|code|nano|lfm|small|preview/i.test(m.id)).sort((a, b) => b.context_length - a.context_length).map(m => m.id);
+      return pick(ids, [/gemma-4-31b/, /nemotron-3-super/, /gemma/]);
+    } },
 ];
 
 const store = {
@@ -281,7 +303,16 @@ async function ask(p, failed = new Set(), forName = ''){
   if (!key) return;  // キー未入力のAIは参加しない
   const el = bubble('wait', label, '考え中…', p.id);
   try {
-    const out = await p.call(key, model, buildMsgs(p));
+    let out;
+    try { out = await p.call(key, model, buildMsgs(p)); }
+    catch (e) {
+      if (![400, 404].includes(e.status) || !/model/i.test(e.message) || !p.resolve) throw e;
+      const m2 = await p.resolve(key, model).catch(() => null);
+      if (!m2 || m2 === model) throw e;
+      row.querySelector('.model').value = m2; store.set(p.id + '.model', m2);
+      note(`${p.name} のモデル「${model}」が使えないため「${m2}」に自動変更しました`);
+      out = await p.call(key, m2, buildMsgs(p));
+    }
     transcript.push({ who:p.id, text:out });
     el.className = 'm c-' + p.id; setBody(el, out, true); save();
   } catch (e) {
