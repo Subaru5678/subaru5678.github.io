@@ -67,6 +67,7 @@
   <h1>マルチAIグループチャット</h1>
   <div class="chips" id="chips"></div>
   <button class="tb" id="seq" type="button" aria-pressed="false" title="オンにすると、AIが順番に答え、後のAIは前のAIの発言を読んでから答えます">順番</button>
+  <button class="tb" id="link" type="button" title="キー入りの引き継ぎリンクをコピー（別の端末で開くと設定が入ります）">🔑</button>
   <button class="tb" id="save" type="button">保存</button>
   <button class="tb" id="clear" type="button">リセット</button>
 </header>
@@ -128,6 +129,17 @@ const store = {
   get(k, d){ try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v){ try { localStorage.setItem(k, v); } catch {} },
 };
+try { navigator.storage?.persist?.(); } catch {}   // ブラウザに設定を勝手に消されにくくする
+
+// 引き継ぎリンク（#k=…）で開いたら、キーと設定を取り込んでURLから消す
+try {
+  const m = location.hash.match(/^#k=([\w-]+)/);
+  if (m) {
+    const d = JSON.parse(atob(m[1].replace(/-/g, '+').replace(/_/g, '/')));
+    for (const p of PROVIDERS) if (d[p.id]) for (const f of ['key', 'model', 'on']) if (d[p.id][f] != null) store.set(p.id + '.' + f, d[p.id][f]);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+} catch {}
 
 
 const transcript = [];   // { who:'user'|providerId, text }
@@ -302,6 +314,13 @@ $('#q').onkeydown = e => {
 };
 $('#q').oninput = e => { const q = e.target; q.style.height = '56px'; q.style.height = Math.min(q.scrollHeight, 200) + 'px'; };
 $('#clear').onclick = () => { transcript.length = 0; $('#log').innerHTML = '<div id="empty">会話をリセットしました。</div>'; save(); };
+$('#link').onclick = () => {
+  const d = {};
+  for (const p of PROVIDERS) d[p.id] = { key:hasKey(p.id) || '', model:rowOf(p.id).querySelector('.model').value.trim(), on:isOn(p.id) ? '1' : '0' };
+  const url = location.origin + location.pathname + '#k=' + btoa(JSON.stringify(d)).replace(/\+/g, '-').replace(/\//g, '_');
+  navigator.clipboard?.writeText(url);
+  note('キー入りの引き継ぎリンクをコピーしました。ブックマークや自分宛てのメモに保存すると、開くだけで設定が入ります。他人には見せないでください。');
+};
 $('#save').onclick = () => {
   const txt = transcript.map(t => `【${t.who === 'user' ? 'あなた' : byId[t.who].name}】\n${t.text}`).join('\n\n');
   const a = document.createElement('a');
