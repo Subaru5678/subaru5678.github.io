@@ -46,7 +46,7 @@
   .m.user{ align-self:flex-end; } .m.user .who{ text-align:right; }
   .m.user .b{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .m.err .b{ color:#c0392b; } .m.wait .b{ color:var(--mute); }
-  .c-gemini .who{ color:#6a5acd; } .c-groq .who{ color:#e0702b; } .c-openrouter .who{ color:#2f8f6b; }
+  .c-gemini .who{ color:#6a5acd; } .c-groq .who{ color:#e0702b; } .c-mistral .who{ color:#e5a000; } .c-cerebras .who{ color:#2f8f6b; }
   .b p{ margin:0 0 .6em; } .b p:last-child{ margin:0; }
   .b pre{ margin:.5em 0; padding:8px 10px; background:var(--bg); border:1px solid var(--line); border-radius:8px; overflow-x:auto; white-space:pre; }
   .b code{ font:12.5px/1.5 ui-monospace,Menlo,monospace; background:var(--bg); padding:1px 4px; border-radius:4px; }
@@ -97,9 +97,9 @@ function explain(e, p){
   if (st === 401) return 'APIキーが無効です。キーを取り直して設定に貼り直してください。';
   if (st === 402) return 'クレジット不足です。無料モデル（:free が付くもの）に切り替えてください。';
   if (st === 403) return 'このキーでは使えません。キーの権限、地域制限、またはモデルの利用条件を確認してください。';
-  if (st === 404) return 'モデル名が存在しません。設定でモデル名を確認してください（OpenRouterの無料モデルは入れ替わります）。';
+  if (st === 404) return 'モデル名が存在しません。設定でモデル名を確認してください。';
   if (st === 413) return '会話が長すぎます。「リセット」してから送り直してください。';
-  if (st === 429) return '無料枠の回数制限に達しました。しばらく待つか、他のAIを使ってください。';
+  if (st === 429) return '無料枠の回数制限に達しました（エラーも回数に数えられることがあります）。しばらく待つか、他のAIを使ってください。';
   if (st >= 500) return `${p.name}側のサーバーエラーです。時間をおいて再試行してください。`;
   if (m.includes('content') || m.includes('undefined') || m.includes('candidates')) return '返答が空でした（安全フィルタなどでブロックされた可能性）。質問を変えてみてください。';
   return '原因不明のエラーです。上のメッセージを確認してください。';
@@ -137,13 +137,18 @@ const PROVIDERS = [
       const ids = j.data.map(m => m.id).filter(i => !/whisper|guard|tts|orpheus|embed|safeguard/i.test(i)).sort(cmpVer);
       return pick(ids, [/llama-3\.3-70b/, /gpt-oss-120b/, /70b|120b/]);
     } },
-  { id:'openrouter', name:'OpenRouter', model:'google/gemma-4-31b-it:free', keyUrl:'https://openrouter.ai/keys',
-    call:openaiLike('https://openrouter.ai/api/v1/chat/completions'),
-    resolve:async () => {
-      const j = await fetch('https://openrouter.ai/api/v1/models').then(asJson);
-      const ids = j.data.filter(m => m.id.endsWith(':free') && (m.architecture?.output_modalities || ['text']).join() === 'text'
-        && !/safety|guard|embed|-vl|code|nano|lfm|small|preview/i.test(m.id)).sort((a, b) => b.context_length - a.context_length).map(m => m.id);
-      return pick(ids, [/gemma-4-31b/, /nemotron-3-super/, /gemma/]);
+  { id:'mistral', name:'Mistral', model:'mistral-small-latest', keyUrl:'https://console.mistral.ai/api-keys',
+    call:openaiLike('https://api.mistral.ai/v1/chat/completions'),
+    resolve:async key => {
+      const j = await fetch('https://api.mistral.ai/v1/models', { headers:{ authorization:'Bearer ' + key } }).then(asJson);
+      const ids = j.data.filter(m => m.capabilities?.completion_chat !== false).map(m => m.id).filter(i => !/embed|moderation|ocr|codestral|voxtral/i.test(i));
+      return pick(ids, [/^mistral-small-latest$/, /^mistral-medium-latest$/, /-latest$/]);
+    } },
+  { id:'cerebras', name:'Cerebras', model:'gpt-oss-120b', keyUrl:'https://cloud.cerebras.ai/platform',
+    call:openaiLike('https://api.cerebras.ai/v1/chat/completions'),
+    resolve:async key => {
+      const j = await fetch('https://api.cerebras.ai/v1/models', { headers:{ authorization:'Bearer ' + key } }).then(asJson);
+      return pick(j.data.map(m => m.id), [/gpt-oss-120b/, /llama.*70b/, /qwen.*235b/]);
     } },
 ];
 
@@ -316,7 +321,7 @@ async function ask(p, failed = new Set(), forName = ''){
     transcript.push({ who:p.id, text:out });
     el.className = 'm c-' + p.id; setBody(el, out, true); save();
   } catch (e) {
-    failed.add(p.id); cooling[p.id] = Date.now() + COOL_MS;
+    failed.add(p.id); cooling[p.id] = Date.now() + (e.status === 429 ? 5 * COOL_MS : COOL_MS);
     const next = PROVIDERS.find(q => ready(q) && !failed.has(q.id));
     el.className = 'm err c-' + p.id;
     setBody(el, 'エラー' + (e.status ? ` (${e.status})` : '') + ': ' + e.message + '\n原因: ' + explain(e, p) + (next ? `\n→ ${next.name} に切り替えます` : ''));
