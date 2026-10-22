@@ -46,7 +46,7 @@
   .m.user{ align-self:flex-end; } .m.user .who{ text-align:right; }
   .m.user .b{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .m.err .b{ color:#c0392b; } .m.wait .b{ color:var(--mute); }
-  .c-gemini .who{ color:#6a5acd; } .c-groq .who{ color:#e0702b; } .c-mistral .who{ color:#e5a000; } .c-cerebras .who{ color:#2f8f6b; }
+  .c-gemini .who{ color:#6a5acd; } .c-groq .who{ color:#e0702b; } .c-mistral .who{ color:#e5a000; } .c-cohere .who{ color:#2f8f6b; }
   .b p{ margin:0 0 .6em; } .b p:last-child{ margin:0; }
   .b pre{ margin:.5em 0; padding:8px 10px; background:var(--bg); border:1px solid var(--line); border-radius:8px; overflow-x:auto; white-space:pre; }
   .b code{ font:12.5px/1.5 ui-monospace,Menlo,monospace; background:var(--bg); padding:1px 4px; border-radius:4px; }
@@ -82,7 +82,7 @@
 const $ = s => document.querySelector(s);
 const asJson = async r => {
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(j.error?.message || j[0]?.error?.message || JSON.stringify(j) || r.statusText), { status:r.status });
+  if (!r.ok) throw Object.assign(new Error(j.error?.message || j[0]?.error?.message || (typeof j.message === 'string' && j.message) || JSON.stringify(j) || r.statusText), { status:r.status });
   return j;
 };
 
@@ -144,11 +144,15 @@ const PROVIDERS = [
       const ids = j.data.filter(m => m.capabilities?.completion_chat !== false).map(m => m.id).filter(i => !/embed|moderation|ocr|codestral|voxtral/i.test(i));
       return pick(ids, [/^mistral-small-latest$/, /^mistral-medium-latest$/, /-latest$/]);
     } },
-  { id:'cerebras', name:'Cerebras', model:'gpt-oss-120b', keyUrl:'https://cloud.cerebras.ai/platform',
-    call:openaiLike('https://api.cerebras.ai/v1/chat/completions'),
+  { id:'cohere', name:'Cohere', model:'command-a-03-2025', keyUrl:'https://dashboard.cohere.com/api-keys',
+    call:(key, model, msgs) => fetch('https://api.cohere.com/v2/chat', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', authorization:'Bearer ' + key },
+      body:JSON.stringify({ model, messages:msgs })
+    }).then(asJson).then(j => j.message.content.map(c => c.text || '').join('')),
     resolve:async key => {
-      const j = await fetch('https://api.cerebras.ai/v1/models', { headers:{ authorization:'Bearer ' + key } }).then(asJson);
-      return pick(j.data.map(m => m.id), [/gpt-oss-120b/, /llama.*70b/, /qwen.*235b/]);
+      const j = await fetch('https://api.cohere.com/v2/models?endpoint=chat', { headers:{ authorization:'Bearer ' + key } }).then(asJson);
+      return pick(j.models.map(m => m.name).filter(n => !/vision|arabic|translate/i.test(n)).sort(cmpVer), [/^command-a-\d/, /^command-r-plus/, /^command/]);
     } },
 ];
 
