@@ -136,11 +136,15 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 .followup { white-space: pre-wrap; overflow-wrap: anywhere; }
 .note { font-size: 13px; color: var(--muted); margin: 0; }
 
-.camBox { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; display: flex; flex-direction: column; gap: 12px; align-items: center;
-  padding-block: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+.camBox { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; }
+.stage { position: absolute; inset: 0; }
+.camBox video { width: 100%; height: 100%; object-fit: cover; background: #000; display: block; }
+.camTop, .camBottom { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 10px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.stage { position: relative; flex: 1 1 0; min-height: 0; width: 100%; }
-.camBox video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+.camTop { top: 0; padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: 24px; background: linear-gradient(rgba(0,0,0,.55), transparent); }
+.camBottom { bottom: 0; padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); padding-top: 28px; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
+.zoomRow { display: flex; align-items: center; gap: 10px; width: min(100%, 360px); font-size: 14px; }
+.zoomRow input { flex: 1; min-width: 0; accent-color: #fff; }
 .guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .modes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .mode { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 14px; border-radius: 99px; border: 1px solid #8a8f9c; background: transparent; color: #fff; cursor: pointer; }
@@ -210,7 +214,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
         <label for="key">Gemini APIキー</label>
         <input type="password" id="key" autocomplete="off" placeholder="AIza…">
         <label for="model">モデル名</label>
-        <input type="text" id="model" value="gemini-2.5-flash">
+        <input type="text" id="model" value="gemini-flash-latest">
         <div class="row"><button class="btn ghost" id="saveKey" type="button">保存</button><span class="hint" id="saveMsg"></span></div>
         <p class="hint">キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> で無料で作れます。このブラウザの中にだけ保存され、Google 以外には送られません。無料枠に送った内容は、Google のサービス改善に使われることがあります。</p>
       </div>
@@ -231,21 +235,30 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 </div>
 
 <div class="camBox" id="camBox" role="dialog" aria-label="カメラ" hidden>
-  <div class="modes" role="group" aria-label="撮るもの">
-    <button class="mode" type="button" data-mode="tag" aria-pressed="true">タグ</button>
-    <button class="mode" type="button" data-mode="body" aria-pressed="false">服全体</button>
-    <button class="mode" type="button" data-mode="part" aria-pressed="false">パーツ・縫製</button>
-    <button class="mode" type="button" data-mode="free" aria-pressed="false">ガイドなし</button>
-  </div>
   <div class="stage">
     <video id="vid" playsinline muted autoplay></video>
     <svg class="guide" id="guide" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
   </div>
-  <p id="camHint"></p>
-  <p id="camCount"></p>
-  <div class="row">
-    <button class="btn" id="shot" type="button">撮影</button>
-    <button class="btn ghost" id="camDone" type="button">完了</button>
+  <div class="camTop">
+    <div class="modes" role="group" aria-label="撮るもの">
+      <button class="mode" type="button" data-mode="tag" aria-pressed="true">タグ</button>
+      <button class="mode" type="button" data-mode="body" aria-pressed="false">服全体</button>
+      <button class="mode" type="button" data-mode="part" aria-pressed="false">パーツ・縫製</button>
+      <button class="mode" type="button" data-mode="free" aria-pressed="false">ガイドなし</button>
+    </div>
+  </div>
+  <div class="camBottom">
+    <p id="camHint"></p>
+    <p id="camCount"></p>
+    <div class="zoomRow" id="zoomRow" hidden>
+      <label for="zoom">ズーム</label>
+      <input type="range" id="zoom" min="1" max="2" step="0.1" value="1">
+      <span id="zoomVal"></span>
+    </div>
+    <div class="row">
+      <button class="btn" id="shot" type="button">撮影</button>
+      <button class="btn ghost" id="camDone" type="button">完了</button>
+    </div>
   </div>
 </div>
 
@@ -282,10 +295,11 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 
   /* ---- settings ---- */
   $('key').value = store('gemini_key') || '';
-  $('model').value = store('gemini_model') || 'gemini-2.5-flash';
+  var DEFAULT_MODEL = 'gemini-flash-latest', savedModel = store('gemini_model');
+  $('model').value = (!savedModel || savedModel === 'gemini-2.5-flash') ? DEFAULT_MODEL : savedModel;
   $('saveKey').onclick = function () {
     store('gemini_key', $('key').value.trim());
-    store('gemini_model', $('model').value.trim() || 'gemini-2.5-flash');
+    store('gemini_model', $('model').value.trim() || DEFAULT_MODEL);
     $('saveMsg').textContent = '保存しました';
     refreshGo();
   };
@@ -309,25 +323,56 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     });
     return f._part;
   }
+  var API = 'https://generativelanguage.googleapis.com/v1beta/';
+  async function post(key, model, payload) {
+    var res;
+    try {
+      res = await fetch(API + 'models/' + encodeURIComponent(model) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: payload
+      });
+    } catch (e) { throw { code: 'network' }; }
+    var data = await res.json().catch(function () { return {}; });
+    return { ok: res.ok, status: res.status, data: data };
+  }
+  /* 指定のモデルが使えないとき、キーで使える最新の flash 系を探す */
+  async function pickModel(key) {
+    try {
+      var res = await fetch(API + 'models?pageSize=200', { headers: { 'x-goog-api-key': key } });
+      var data = await res.json();
+      var list = arr(data.models).filter(function (m) {
+        var n = str(m.name);
+        return /gemini/.test(n) && /flash/.test(n) && !/lite|image|tts|audio|live|embed|robot|computer|exp|thinking|learn/.test(n) &&
+          arr(m.supportedGenerationMethods).indexOf('generateContent') >= 0;
+      }).map(function (m) {
+        var n = str(m.name).replace(/^models\//, ''), v = /gemini-(\d+(?:\.\d+)?)/.exec(n);
+        return { n: n, v: v ? parseFloat(v[1]) : 0, p: /preview/.test(n) ? 0 : 1 };
+      });
+      list.sort(function (a, b) { return b.v - a.v || b.p - a.p; });
+      return list.length ? list[0].n : null;
+    } catch (e) { return null; }
+  }
   async function gemini(text, opts) {
     opts = opts || {};
-    var key = ($('key').value || '').trim(), model = ($('model').value || '').trim() || 'gemini-2.5-flash';
+    var key = ($('key').value || '').trim(), model = ($('model').value || '').trim() || DEFAULT_MODEL;
     if (!key) throw { code: 'nokey' };
     var parts = await Promise.all(files.map(fileToPart));
     parts.push({ text: text });
     var body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.4 } };
     if (opts.json) body.generationConfig.responseMimeType = 'application/json';
     if (opts.search) body.tools = [{ google_search: {} }];
-    var res;
-    try {
-      res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body)
-      });
-    } catch (e) { throw { code: 'network' }; }
-    var data = await res.json().catch(function () { return {}; });
-    if (!res.ok) {
+    var payload = JSON.stringify(body);
+    var r = await post(key, model, payload);
+    if (r.status === 404) {
+      var alt = await pickModel(key);
+      if (alt && alt !== model) {
+        var r2 = await post(key, alt, payload);
+        if (r2.ok) { r = r2; $('model').value = alt; store('gemini_model', alt); }
+      }
+    }
+    var data = r.data;
+    if (!r.ok) {
       var m = (data.error && data.error.message) || '';
-      throw { code: res.status === 429 ? 'rate' : res.status === 404 ? 'model' : (res.status === 400 || res.status === 403) && /API key|API_KEY/i.test(m) ? 'badkey' : 'api', detail: m };
+      throw { code: r.status === 429 ? 'rate' : r.status === 404 ? 'model' : (r.status === 400 || r.status === 403) && /API key|API_KEY/i.test(m) ? 'badkey' : 'api', detail: m };
     }
     var cand = (data.candidates || [])[0];
     if (!cand || !cand.content || !cand.content.parts) throw { code: 'blocked', detail: data.promptFeedback && data.promptFeedback.blockReason };
@@ -344,7 +389,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   var ERR = {
     nokey: 'APIキーが未設定です。「設定」に入れて保存してください。',
     badkey: 'APIキーが正しくありません。Google AI Studio で作ったキーを確認してください。',
-    model: 'このモデル名は使えません。「設定」のモデル名を、AI Studio に出ているものに変えてください。',
+    model: '使えるモデルが見つかりませんでした。「設定」のモデル名を、AI Studio に出ているものに書き換えてください。',
     rate: '無料枠の上限に達しました。しばらく待つか、明日もう一度試してください。',
     network: '通信に失敗しました。接続を確認してもう一度押してください。',
     blocked: 'Gemini が回答を返しませんでした。写真やメモを変えて試してください。',
@@ -431,14 +476,34 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   function camCount() { $('camCount').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚撮影済み'; }
   function closeCam() {
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
-    stream = null; $('vid').srcObject = null; $('camBox').hidden = true;
+    stream = null; $('vid').srcObject = null; $('camBox').hidden = true; $('zoomRow').hidden = true;
+    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
   }
+  /* ズームの下限(最も広く写る位置)から始める */
+  function initZoom() {
+    $('zoomRow').hidden = true;
+    var t = stream && stream.getVideoTracks()[0];
+    var caps = t && t.getCapabilities ? t.getCapabilities() : {};
+    if (!caps.zoom) return;
+    var z = $('zoom');
+    z.min = caps.zoom.min; z.max = caps.zoom.max; z.step = caps.zoom.step || 0.1; z.value = caps.zoom.min;
+    $('zoomVal').textContent = Number(z.value).toFixed(1) + '倍';
+    t.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] }).catch(function () {});
+    $('zoomRow').hidden = false;
+  }
+  $('zoom').oninput = function () {
+    var t = stream && stream.getVideoTracks()[0], v = Number(this.value);
+    $('zoomVal').textContent = v.toFixed(1) + '倍';
+    if (t) t.applyConstraints({ advanced: [{ zoom: v }] }).catch(function () {});
+  };
   async function openCam() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('camFile').click(); return; }
+    $('camBox').hidden = false;
+    try { if (document.fullscreenEnabled && !document.fullscreenElement) $('camBox').requestFullscreen({ navigationUI: 'hide' }).catch(function () {}); } catch (e) {}
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } }, audio: false });
-      $('vid').srcObject = stream; $('camBox').hidden = false; camCount();
-    } catch (e) { $('camFile').click(); }
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false });
+      $('vid').srcObject = stream; camCount(); initZoom();
+    } catch (e) { closeCam(); $('camFile').click(); }
   }
   $('cam').onclick = openCam;
   $('camDone').onclick = closeCam;
@@ -446,9 +511,12 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   $('shot').onclick = function () {
     var v = $('vid');
     if (!v.videoWidth || files.length >= MAX_PHOTOS) { camCount(); return; }
+    /* 画面に見えている範囲と同じ範囲を切り出す */
+    var vw = v.videoWidth, vh = v.videoHeight, bw = v.clientWidth, bh = v.clientHeight;
+    var s = Math.max(bw / vw, bh / vh), cw = bw / s, ch = bh / s;
     var c = document.createElement('canvas');
-    c.width = v.videoWidth; c.height = v.videoHeight;
-    c.getContext('2d').drawImage(v, 0, 0);
+    c.width = Math.round(cw); c.height = Math.round(ch);
+    c.getContext('2d').drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
     c.toBlob(function (b) {
       if (!b) return;
       var f = new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
