@@ -50,7 +50,7 @@ header.top .kicker { font-family: var(--font-mono); font-size: 11px; letter-spac
 .gobar { padding-block: 10px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
 .gobar .btn { width: 100%; padding: 14px 16px; font-size: 17px; }
 
-nav.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+nav.tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .tab { position: relative; font: inherit; font-size: 15px; font-weight: 700; background: none; border: 0; border-top: 3px solid transparent; color: var(--muted); padding: 12px 4px; cursor: pointer; }
 .tab[aria-selected="true"] { color: var(--accent); border-top-color: var(--accent); }
 .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
@@ -62,11 +62,10 @@ h2 { font-size: 13px; font-family: var(--font-mono); font-weight: 500; letter-sp
 .drop { border: 2px dashed var(--line); border-radius: 6px; padding: 16px 12px; text-align: center; color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s; }
 .drop:hover, .drop.over, .drop:focus-visible { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); outline: none; }
 .drop small { font-size: 13px; }
-@media (hover: none) { .drop .dd { display: none; } }
-.thumbs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.thumb { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); }
+@media (hover: none) { .drop { display: none; } }
+.thumbs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }.thumb { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.thumb button { position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(15,19,38,.78); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; }
+.thumb button { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(15,19,38,.78); color: #fff; font-size: 13px; line-height: 1; cursor: pointer; }
 .thumb button:focus-visible { outline: 2px solid var(--accent); }
 .thumb .lab { position: absolute; left: 3px; bottom: 3px; font-size: 11px; line-height: 1.5; background: rgba(15,19,38,.78); color: #fff; padding: 0 6px; border-radius: 3px; }
 .hint { font-size: 13px; color: var(--muted); margin: 0; }
@@ -166,7 +165,6 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     <!-- 撮影 -->
     <section class="view" id="view-photo" aria-label="撮影">
       <div class="panel">
-        <h2>写真</h2>
         <div class="row">
           <button class="btn big" id="cam" type="button">カメラで撮る</button>
           <button class="btn ghost big" id="pick" type="button">写真を選ぶ</button>
@@ -179,14 +177,10 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
         <div class="thumbs" id="thumbs"></div>
         <p class="hint" id="photoHint"></p>
       </div>
-    </section>
 
-    <!-- 情報 -->
-    <section class="view" id="view-info" aria-label="情報" hidden>
       <div class="panel">
-        <h2>わかっている情報</h2>
         <label for="memo">メモ(任意)</label>
-        <textarea id="memo" rows="5" placeholder="例: 古着屋で購入。袖に擦れあり。ボタン裏に「J」の刻印。"></textarea>
+        <textarea id="memo" rows="2" placeholder="例: 古着屋で購入。袖に擦れあり。ボタン裏に「J」の刻印。"></textarea>
         <label for="kind">ジャンル(任意)</label>
         <input type="text" id="kind" placeholder="例: デニム / ミリタリー / バンドT / スウェット">
       </div>
@@ -229,7 +223,6 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 
   <nav class="tabs" role="tablist" aria-label="メニュー">
     <button class="tab" role="tab" data-view="photo" aria-selected="true">撮影</button>
-    <button class="tab" role="tab" data-view="info" aria-selected="false">情報</button>
     <button class="tab" role="tab" data-view="result" aria-selected="false">結果<span class="dot" id="dot" hidden></span></button>
     <button class="tab" role="tab" data-view="set" aria-selected="false">設定</button>
   </nav>
@@ -287,9 +280,9 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   /* ---- views (tap to switch) ---- */
   function showView(name) {
     view = name;
-    ['photo', 'info', 'result', 'set'].forEach(function (v) { $('view-' + v).hidden = v !== name; });
+    ['photo', 'result', 'set'].forEach(function (v) { $('view-' + v).hidden = v !== name; });
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) { t.setAttribute('aria-selected', t.dataset.view === name ? 'true' : 'false'); });
-    $('gobar').hidden = !(name === 'photo' || name === 'info');
+    $('gobar').hidden = name !== 'photo';
     if (name === 'result') { resultSeen = true; $('dot').hidden = true; }
     $('views').scrollTop = 0;
   }
@@ -415,7 +408,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       b.onclick = function () { URL.revokeObjectURL(url); files.splice(i, 1); renderThumbs(); };
       box.append(h('div', { class: 'thumb' }, [h('img', { src: url, alt: (i + 1) + '枚目の写真' }), b, f._label ? h('span', { class: 'lab', text: f._label }) : null]));
     });
-    $('photoHint').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚。タグとパーツの接写が多いほど精度が上がります。';
+    $('photoHint').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚(タグの接写があると精度が上がります)';
     refreshGo();
   }
   function addFiles(list) {
