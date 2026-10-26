@@ -143,6 +143,8 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .camTop { top: 0; padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: 24px; background: linear-gradient(rgba(0,0,0,.55), transparent); }
 .camBottom { bottom: 0; padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); padding-top: 28px; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
+.camBottom .row { justify-content: center; }
+.camBottom .btn { padding: 10px 14px; font-size: 15px; }
 .zoomRow { display: flex; align-items: center; gap: 10px; width: min(100%, 360px); font-size: 14px; }
 .zoomRow input { flex: 1; min-width: 0; accent-color: #fff; }
 .guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -252,6 +254,8 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     <div class="row">
       <button class="btn" id="shot" type="button">撮影</button>
       <button class="btn ghost" id="fit" type="button" aria-pressed="false">表示: 広く</button>
+      <button class="btn ghost" id="swap" type="button" hidden>レンズ切替</button>
+      <button class="btn ghost" id="native" type="button">標準カメラ</button>
       <button class="btn ghost" id="camDone" type="button">完了</button>
     </div>
   </div>
@@ -491,14 +495,39 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     $('zoomVal').textContent = v.toFixed(1) + '倍';
     if (t) t.applyConstraints({ advanced: [{ zoom: v }] }).catch(function () {});
   };
+  /* レンズ(カメラ)を指定して映像を開く。指定なしは背面カメラ */
+  var lenses = [], lensIdx = 0;
+  async function startStream(deviceId) {
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    var size = { width: { ideal: 1920 }, height: { ideal: 1440 } };
+    var video = deviceId ? Object.assign({ deviceId: { exact: deviceId } }, size) : Object.assign({ facingMode: { ideal: 'environment' } }, size);
+    stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: false });
+    $('vid').srcObject = stream; camCount(); initZoom();
+  }
+  async function listLenses() {
+    try {
+      var all = (await navigator.mediaDevices.enumerateDevices()).filter(function (d) { return d.kind === 'videoinput'; });
+      var back = all.filter(function (d) { return /back|rear|environment|背面/i.test(d.label); });
+      lenses = back.length ? back : all;
+      var cur = stream && stream.getVideoTracks()[0] && stream.getVideoTracks()[0].getSettings().deviceId;
+      lensIdx = Math.max(0, lenses.findIndex(function (d) { return d.deviceId === cur; }));
+      var sw = $('swap');
+      sw.hidden = lenses.length < 2;
+      sw.textContent = 'レンズ切替 ' + (lensIdx + 1) + '/' + lenses.length;
+    } catch (e) { $('swap').hidden = true; }
+  }
+  $('swap').onclick = async function () {
+    if (lenses.length < 2) return;
+    lensIdx = (lensIdx + 1) % lenses.length;
+    try { await startStream(lenses[lensIdx].deviceId); this.textContent = 'レンズ切替 ' + (lensIdx + 1) + '/' + lenses.length; }
+    catch (e) { $('camHint').textContent = 'このレンズは使えませんでした。もう一度押してください。'; }
+  };
+  $('native').onclick = function () { closeCam(); $('camFile').click(); };
   async function openCam() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('camFile').click(); return; }
     $('camBox').hidden = false;
     try { if (document.fullscreenEnabled && !document.fullscreenElement) $('camBox').requestFullscreen({ navigationUI: 'hide' }).catch(function () {}); } catch (e) {}
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false });
-      $('vid').srcObject = stream; camCount(); initZoom();
-    } catch (e) { closeCam(); $('camFile').click(); }
+    try { await startStream(null); await listLenses(); } catch (e) { closeCam(); $('camFile').click(); }
   }
   $('fit').onclick = function () {
     var on = $('camBox').classList.toggle('cover');
