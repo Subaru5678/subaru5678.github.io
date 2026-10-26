@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>stylens</title>
 <style>
-/* Layout: one screen at a time. Header on top, bottom tab bar switches 撮影 / 情報 / 結果 / 設定; the result view splits into sub-tabs so nothing needs long scrolling. */
+/* Layout: one screen at a time. Bottom tabs: 撮影 (capture + live result) / リスト / 設定. */
 :root {
   color-scheme: light;
   --bg: #ffffff;
@@ -24,7 +24,7 @@
   --font-body: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 img { max-width: 100%; }
 html, body { height: 100%; }
@@ -43,15 +43,15 @@ header.top .kicker { font-family: var(--font-mono); font-size: 11px; letter-spac
 
 .views { flex: 1; min-height: 0; overflow-y: auto; padding-block: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
 .view { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
 
 .gobar { padding-block: 10px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
 .gobar .btn { width: 100%; padding: 14px 16px; font-size: 17px; }
 
 nav.tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.tab { position: relative; font: inherit; font-size: 15px; font-weight: 700; background: none; border: 0; border-top: 3px solid transparent; color: var(--muted); padding: 12px 4px; cursor: pointer; }
+.tab { font: inherit; font-size: 15px; font-weight: 700; background: none; border: 0; border-top: 3px solid transparent; color: var(--muted); padding: 12px 4px; cursor: pointer; }
 .tab[aria-selected="true"] { color: var(--accent); border-top-color: var(--accent); }
 .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
-.tab .dot { position: absolute; top: 8px; right: calc(50% - 30px); width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
 
 .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 h2 { font-size: 13px; font-family: var(--font-mono); font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--indigo); margin: 0; }
@@ -60,7 +60,8 @@ h2 { font-size: 13px; font-family: var(--font-mono); font-weight: 500; letter-sp
 .drop:hover, .drop.over, .drop:focus-visible { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); outline: none; }
 .drop small { font-size: 13px; }
 @media (hover: none) { .drop { display: none; } }
-.thumbs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }.thumb { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); }
+.thumbs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.thumb { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb button { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(15,19,38,.78); color: #fff; font-size: 13px; line-height: 1; cursor: pointer; }
 .thumb button:focus-visible { outline: 2px solid var(--accent); }
@@ -79,33 +80,33 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); 
 .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .btn.big { flex: 1 1 140px; padding: 16px; font-size: 17px; }
+.btn.small { padding: 8px 12px; font-size: 14px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .check { display: flex; gap: 8px; align-items: center; font-weight: 400; font-size: 14px; }
 
-.empty { color: var(--muted); }
-.empty ol { margin: 8px 0 0; padding-left: 1.3em; }
 .status { font-family: var(--font-mono); font-size: 13px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 .err { color: var(--bad); font-weight: 500; }
 
-.subtabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; position: sticky; top: 0; background: var(--bg); padding-bottom: 4px; z-index: 2; }
-.sub { font: inherit; font-size: 14px; font-weight: 700; padding: 9px 2px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
-.sub[aria-selected="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
-.sub:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.pane { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-
+/* live result */
+.resbar { display: flex; align-items: center; gap: 10px; }
+.strip { flex: 1; min-width: 0; display: flex; gap: 4px; overflow: hidden; }
+.strip img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); flex: none; }
 .tag { border: 1px solid var(--line); border-radius: 6px; background: var(--paper); overflow: hidden; }
 .tag-head { padding: 16px; border-bottom: 2px dashed var(--accent); display: flex; flex-direction: column; gap: 6px; }
 .tag-head .label { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .14em; color: var(--muted); }
 .tag-head h3 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 5vw, 26px); line-height: 1.3; text-wrap: balance; }
 .tag-head p { margin: 0; }
+.price { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.price .k, .fact .k { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .12em; color: var(--muted); }
+.price .v { font-weight: 800; font-size: 22px; color: var(--accent); overflow-wrap: anywhere; }
+.price .e, .fact .e { font-size: 14px; color: var(--muted); }
 .fact { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .fact:last-child { border-bottom: 0; }
-.fact .k { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .12em; color: var(--muted); }
 .fact .v { font-weight: 700; font-size: 18px; overflow-wrap: anywhere; }
-.fact .e { font-size: 14px; color: var(--muted); }
+.skel { color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; }
 .conf { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
 .conf i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: inline-block; }
 .conf i.on { background: var(--accent); }
@@ -117,7 +118,6 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); 
 .clue .part { font-family: var(--font-mono); font-size: 13px; color: var(--indigo); font-weight: 500; overflow-wrap: anywhere; }
 .clue .obs { overflow-wrap: anywhere; }
 .clue .imp { color: var(--muted); font-size: 14px; }
-
 .pill { display: inline-block; padding: 2px 12px; border-radius: 99px; font-size: 15px; font-weight: 700; border: 1px solid currentColor; }
 .pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
 ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
@@ -125,13 +125,24 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 .links a { display: block; padding: 12px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); text-decoration: none; font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
 .links a span { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
 .links a:hover, .links a:focus-visible { border-color: var(--accent); outline: none; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { font-family: var(--font-mono); font-size: 13px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); cursor: pointer; }
-.chip:hover, .chip:focus-visible { border-color: var(--accent); outline: none; }
-.chip.done { border-color: var(--ok); color: var(--ok); }
 .followup { white-space: pre-wrap; overflow-wrap: anywhere; }
 .note { font-size: 13px; color: var(--muted); margin: 0; }
 
+/* list */
+.items { display: flex; flex-direction: column; gap: 10px; }
+.item { position: relative; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.itembtn { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; padding: 10px 40px 10px 10px; width: 100%; cursor: pointer; }
+.itembtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.itembtn img, .itembtn .noimg { width: 84px; height: 84px; object-fit: cover; border-radius: 4px; background: var(--soft); border: 1px solid var(--line); }
+.itemtxt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.itemtxt b { font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
+.itemtxt .d { font-size: 13.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.itemtxt .p { font-weight: 800; color: var(--accent); font-size: 15px; }
+.item .del { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); font-size: 18px; cursor: pointer; }
+.item .del:focus-visible { outline: 2px solid var(--accent); }
+.detailThumb { width: 100%; max-height: 220px; object-fit: contain; border-radius: 6px; background: var(--soft); }
+
+/* camera */
 .camBox { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; }
 .stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
 .camBox video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; transform-origin: 50% 50%; }
@@ -157,43 +168,44 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   </header>
 
   <div class="views" id="views">
-    <!-- 撮影 -->
-    <section class="view" id="view-photo" aria-label="撮影">
-      <div class="panel">
-        <div class="row">
-          <button class="btn big" id="cam" type="button">カメラで撮る</button>
-          <button class="btn ghost big" id="pick" type="button">写真を選ぶ</button>
+    <!-- 撮影(入力と結果を1ページに) -->
+    <section class="view" id="view-shoot" aria-label="撮影">
+      <div class="stack" id="shootInput">
+        <div class="panel">
+          <div class="row">
+            <button class="btn big" id="cam" type="button">カメラで撮る</button>
+            <button class="btn ghost big" id="pick" type="button">写真を選ぶ</button>
+          </div>
+          <div class="drop" id="drop" role="button" tabindex="0" aria-label="写真を選ぶ">
+            <small>ここへ画像をドロップしても追加できます。<br>全体・ネームタグ・洗濯表示・ジッパー・ステッチ</small>
+          </div>
+          <input type="file" id="file" accept="image/*" multiple hidden>
+          <input type="file" id="camFile" accept="image/*" capture="environment" hidden>
+          <div class="thumbs" id="thumbs"></div>
+          <p class="hint" id="photoHint"></p>
         </div>
-        <div class="drop" id="drop" role="button" tabindex="0" aria-label="写真を選ぶ">
-          <small><span class="dd">ここへ画像をドロップしても追加できます。<br></span>全体・ネームタグ・洗濯表示・ジッパー・ステッチ</small>
+        <div class="panel">
+          <label for="memo">メモ(任意)</label>
+          <textarea id="memo" rows="2" placeholder="例: 古着屋で購入。袖に擦れあり。ボタン裏に「J」の刻印。"></textarea>
+          <label for="kind">ジャンル(任意)</label>
+          <input type="text" id="kind" placeholder="例: デニム / ミリタリー / バンドT / スウェット">
         </div>
-        <input type="file" id="file" accept="image/*" multiple hidden>
-        <input type="file" id="camFile" accept="image/*" capture="environment" hidden>
-        <div class="thumbs" id="thumbs"></div>
-        <p class="hint" id="photoHint"></p>
       </div>
-
-      <div class="panel">
-        <label for="memo">メモ(任意)</label>
-        <textarea id="memo" rows="2" placeholder="例: 古着屋で購入。袖に擦れあり。ボタン裏に「J」の刻印。"></textarea>
-        <label for="kind">ジャンル(任意)</label>
-        <input type="text" id="kind" placeholder="例: デニム / ミリタリー / バンドT / スウェット">
+      <div class="stack" id="shootResult" hidden>
+        <div class="resbar">
+          <div class="strip" id="strip"></div>
+          <button class="btn ghost small" id="again" type="button">新しく撮る</button>
+        </div>
+        <div id="live" aria-live="polite"></div>
       </div>
     </section>
 
-    <!-- 結果 -->
-    <section class="view" id="view-result" aria-label="結果" aria-live="polite" hidden>
-      <div id="resultBody">
-        <div class="panel empty">
-          <h2>使い方</h2>
-          <p style="margin:0">タグ、縫製、パーツの写真から、ブランド・年代・産地・真贋の手がかりを根拠つきで読み取ります。</p>
-          <ol>
-            <li>「設定」にGeminiのAPIキーを入れて保存します。</li>
-            <li>「撮影」でタグと全体の写真を入れます。</li>
-            <li>「調査する」を押すと、ここに結果が出ます。</li>
-          </ol>
-          <p class="note">相場は推定せず、メルカリ・ヤフオク・eBay の売り切れ検索へのリンクを作ります。</p>
-        </div>
+    <!-- リスト -->
+    <section class="view" id="view-list" aria-label="リスト" hidden>
+      <div id="listMain"><div class="items" id="listBody"></div></div>
+      <div class="stack" id="listDetail" hidden>
+        <div><button class="btn ghost small" id="backList" type="button">← リストに戻る</button></div>
+        <div id="detailBody"></div>
       </div>
     </section>
 
@@ -217,8 +229,8 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   </div>
 
   <nav class="tabs" role="tablist" aria-label="メニュー">
-    <button class="tab" role="tab" data-view="photo" aria-selected="true">撮影</button>
-    <button class="tab" role="tab" data-view="result" aria-selected="false">結果<span class="dot" id="dot" hidden></span></button>
+    <button class="tab" role="tab" data-view="shoot" aria-selected="true">撮影</button>
+    <button class="tab" role="tab" data-view="list" aria-selected="false">リスト</button>
     <button class="tab" role="tab" data-view="set" aria-selected="false">設定</button>
   </nav>
 </div>
@@ -239,8 +251,8 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var MAX_PHOTOS = 8, MAX_EDGE = 1280;
-  var files = [], lastReport = null, view = 'photo', busy = false, resultSeen = true;
+  var MAX_PHOTOS = 8, MAX_EDGE = 1280, MAX_ITEMS = 60, LS_ITEMS = 'stylens_items';
+  var files = [], view = 'shoot', shoot = 'input', busy = false, ctl = null, lastRep = null;
 
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
   function h(tag, attrs, kids) {
@@ -256,20 +268,25 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   function arr(v) { return Array.isArray(v) ? v : []; }
   function str(v) { return typeof v === 'string' ? v : (v == null ? '' : String(v)); }
 
-  /* ---- views (tap to switch) ---- */
+  /* ---- screens ---- */
+  function chrome() {
+    ['shoot', 'list', 'set'].forEach(function (v) { $('view-' + v).hidden = v !== view; });
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) { t.setAttribute('aria-selected', t.dataset.view === view ? 'true' : 'false'); });
+    $('shootInput').hidden = shoot !== 'input';
+    $('shootResult').hidden = shoot !== 'result';
+    $('gobar').hidden = !(view === 'shoot' && shoot === 'input');
+    $('views').scrollTop = 0;
+  }
   function showView(name) {
     view = name;
-    ['photo', 'result', 'set'].forEach(function (v) { $('view-' + v).hidden = v !== name; });
-    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) { t.setAttribute('aria-selected', t.dataset.view === name ? 'true' : 'false'); });
-    $('gobar').hidden = name !== 'photo';
-    if (name === 'result') { resultSeen = true; $('dot').hidden = true; }
-    $('views').scrollTop = 0;
+    if (name === 'list') { $('listDetail').hidden = true; $('listMain').hidden = false; renderList(); }
+    chrome();
   }
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) { t.onclick = function () { showView(t.dataset.view); }; });
 
   /* ---- settings ---- */
-  $('key').value = store('gemini_key') || '';
   var DEFAULT_MODEL = 'gemini-flash-latest', savedModel = store('gemini_model');
+  $('key').value = store('gemini_key') || '';
   $('model').value = (!savedModel || savedModel === 'gemini-2.5-flash') ? DEFAULT_MODEL : savedModel;
   $('saveKey').onclick = function () {
     store('gemini_key', $('key').value.trim());
@@ -280,6 +297,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   $('key').oninput = refreshGo;
 
   /* ---- Gemini ---- */
+  var API = 'https://generativelanguage.googleapis.com/v1beta/';
   function fileToPart(f) {
     if (f._part) return f._part;
     f._part = new Promise(function (resolve, reject) {
@@ -297,16 +315,9 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     });
     return f._part;
   }
-  var API = 'https://generativelanguage.googleapis.com/v1beta/';
-  async function post(key, model, payload) {
-    var res;
-    try {
-      res = await fetch(API + 'models/' + encodeURIComponent(model) + ':generateContent', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: payload
-      });
-    } catch (e) { throw { code: 'network' }; }
-    var data = await res.json().catch(function () { return {}; });
-    return { ok: res.ok, status: res.status, data: data };
+  function mapErr(status, data) {
+    var m = (data && data.error && data.error.message) || '';
+    return { code: status === 429 ? 'rate' : status === 404 ? 'model' : (status === 400 || status === 403) && /API key|API_KEY/i.test(m) ? 'badkey' : 'api', detail: m };
   }
   /* 指定のモデルが使えないとき、キーで使える最新の flash 系を探す */
   async function pickModel(key) {
@@ -325,46 +336,93 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       return list.length ? list[0].n : null;
     } catch (e) { return null; }
   }
-  async function gemini(text, opts) {
-    opts = opts || {};
+  async function sendReq(key, model, body, stream, signal) {
+    try {
+      return await fetch(API + 'models/' + encodeURIComponent(model) + (stream ? ':streamGenerateContent?alt=sse' : ':generateContent'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body), signal: signal
+      });
+    } catch (e) { throw (e && e.name === 'AbortError') ? { code: 'abort' } : { code: 'network' }; }
+  }
+  async function errBody(res) { var d = await res.json().catch(function () { return {}; }); return Array.isArray(d) ? (d[0] || {}) : d; }
+  /* リクエストを送り、モデル名・thinking 設定の不一致は自動で直して再試行する */
+  async function open(text, opts) {
     var key = ($('key').value || '').trim(), model = ($('model').value || '').trim() || DEFAULT_MODEL;
     if (!key) throw { code: 'nokey' };
     var parts = await Promise.all(files.map(fileToPart));
     parts.push({ text: text });
-    var body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.4 } };
-    if (opts.json) body.generationConfig.responseMimeType = 'application/json';
+    var body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.3, thinkingConfig: { thinkingBudget: 0 } } };
     if (opts.search) body.tools = [{ google_search: {} }];
-    body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-    var payload = JSON.stringify(body);
-    var r = await post(key, model, payload);
-    if (r.status === 400 && /thinking/i.test(JSON.stringify(r.data))) {
-      delete body.generationConfig.thinkingConfig;
-      payload = JSON.stringify(body);
-      r = await post(key, model, payload);
-    }
-    if (r.status === 404) {
-      var alt = await pickModel(key);
-      if (alt && alt !== model) {
-        var r2 = await post(key, alt, payload);
-        if (r2.ok) { r = r2; $('model').value = alt; store('gemini_model', alt); }
+    var res = await sendReq(key, model, body, opts.stream, opts.signal), data;
+    if (!res.ok) {
+      data = await errBody(res);
+      if (res.status === 400 && /thinking/i.test(JSON.stringify(data))) {
+        delete body.generationConfig.thinkingConfig;
+        res = await sendReq(key, model, body, opts.stream, opts.signal);
+        if (!res.ok) data = await errBody(res);
       }
     }
-    var data = r.data;
-    if (!r.ok) {
-      var m = (data.error && data.error.message) || '';
-      throw { code: r.status === 429 ? 'rate' : r.status === 404 ? 'model' : (r.status === 400 || r.status === 403) && /API key|API_KEY/i.test(m) ? 'badkey' : 'api', detail: m };
+    if (!res.ok && res.status === 404) {
+      var alt = await pickModel(key);
+      if (alt && alt !== model) {
+        var r2 = await sendReq(key, alt, body, opts.stream, opts.signal);
+        if (r2.ok) { res = r2; $('model').value = alt; store('gemini_model', alt); }
+        else { res = r2; data = await errBody(r2); }
+      }
     }
+    if (!res.ok) throw mapErr(res.status, data);
+    return res;
+  }
+  /* 追加質問用(一括で受け取る) */
+  async function gemini(text, opts) {
+    var res = await open(text, { stream: false, search: !!(opts && opts.search) });
+    var data = await res.json().catch(function () { return {}; });
     var cand = (data.candidates || [])[0];
     if (!cand || !cand.content || !cand.content.parts) throw { code: 'blocked', detail: data.promptFeedback && data.promptFeedback.blockReason };
-    var out = cand.content.parts.map(function (p) { return p.text || ''; }).join('');
     var gm = cand.groundingMetadata || {};
-    return { text: out, sources: arr(gm.groundingChunks).map(function (c) { return c.web; }).filter(Boolean) };
+    return {
+      text: cand.content.parts.map(function (p) { return p.text || ''; }).join(''),
+      sources: arr(gm.groundingChunks).map(function (c) { return c.web; }).filter(Boolean)
+    };
   }
-  function parseJson(t) {
-    try { return JSON.parse(t); } catch (e) {}
-    var a = t.indexOf('{'), b = t.lastIndexOf('}');
-    if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {} }
-    throw { code: 'json' };
+  /* 調査用(出てきた順に1行ずつ渡す。1行=1つのJSON) */
+  async function geminiLines(text, onLine, signal) {
+    var res = await open(text, { stream: true, signal: signal });
+    var reader = res.body.getReader(), dec = new TextDecoder();
+    var sse = '', buf = '', all = '', got = 0;
+    function handle(ln) {
+      ln = ln.replace(/^```(?:json)?/, '').trim();
+      if (!ln || ln[0] !== '{') return;
+      try { onLine(JSON.parse(ln)); got++; } catch (e) {}
+    }
+    function eat(line) {
+      line = line.trim();
+      if (line.indexOf('data:') !== 0) return;
+      var j; try { j = JSON.parse(line.slice(5)); } catch (e) { return; }
+      var cand = (j.candidates || [])[0];
+      if (!cand || !cand.content) return;
+      var t = arr(cand.content.parts).map(function (p) { return p.text || ''; }).join('');
+      all += t; buf += t;
+      var nl;
+      while ((nl = buf.indexOf('\n')) >= 0) { handle(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
+    }
+    try {
+      for (;;) {
+        var r = await reader.read();
+        if (r.done) break;
+        sse += dec.decode(r.value, { stream: true });
+        var idx;
+        while ((idx = sse.indexOf('\n')) >= 0) { eat(sse.slice(0, idx)); sse = sse.slice(idx + 1); }
+      }
+    } catch (e) { throw (e && e.name === 'AbortError') ? { code: 'abort' } : { code: 'network' }; }
+    eat(sse); handle(buf);
+    if (!got) { /* 1行にまとまっていない場合の保険: { } の対応で切り出す */
+      var depth = 0, start = -1;
+      for (var i = 0; i < all.length; i++) {
+        if (all[i] === '{') { if (depth === 0) start = i; depth++; }
+        else if (all[i] === '}' && depth > 0) { depth--; if (depth === 0) { try { onLine(JSON.parse(all.slice(start, i + 1))); got++; } catch (e) {} } }
+      }
+    }
+    if (!got) throw { code: 'blocked' };
   }
   var ERR = {
     nokey: 'APIキーが未設定です。「設定」に入れて保存してください。',
@@ -373,7 +431,6 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     rate: '無料枠の上限に達しました。しばらく待つか、明日もう一度試してください。',
     network: '通信に失敗しました。接続を確認してもう一度押してください。',
     blocked: 'Gemini が回答を返しませんでした。写真やメモを変えて試してください。',
-    json: '結果の形式が崩れました。もう一度押してください。',
     image: '読み込めない画像が含まれています。別の画像に差し替えてください。',
     api: 'Gemini がエラーを返しました。'
   };
@@ -414,12 +471,12 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   var stream = null, mode = 'tag', hw = false, zMin = 1, zMax = 4, zoomLevel = 1, dz = 1, zTimer = null, zRaf = 0;
   var MODES = { tag: { label: 'タグ', title: 'ガイド: タグ' }, body: { label: '全体', title: 'ガイド: 服全体' }, part: { label: 'パーツ', title: 'ガイド: パーツ' }, free: { label: '', title: 'ガイドなし' } };
   var ORDER = ['tag', 'body', 'part', 'free'];
-  function rectGuide(x, y, w, h) {
+  function rectGuide(x, y, w, hh) {
     var L = 7;
     return {
-      thin: 'M' + x + ' ' + y + 'h' + w + 'v' + h + 'h-' + w + 'z',
+      thin: 'M' + x + ' ' + y + 'h' + w + 'v' + hh + 'h-' + w + 'z',
       thick: 'M' + x + ' ' + (y + L) + 'V' + y + 'H' + (x + L) + 'M' + (x + w - L) + ' ' + y + 'H' + (x + w) + 'V' + (y + L) +
-        'M' + (x + w) + ' ' + (y + h - L) + 'V' + (y + h) + 'H' + (x + w - L) + 'M' + (x + L) + ' ' + (y + h) + 'H' + x + 'V' + (y + h - L)
+        'M' + (x + w) + ' ' + (y + hh - L) + 'V' + (y + hh) + 'H' + (x + w - L) + 'M' + (x + L) + ' ' + (y + hh) + 'H' + x + 'V' + (y + hh - L)
     };
   }
   function strokePair(d, thick, dash) {
@@ -432,11 +489,9 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     if (m === 'tag') { g = rectGuide(8, 33, 84, 34); return strokePair(g.thin, false, true) + strokePair(g.thick, true, false); }
     if (m === 'part') {
       g = rectGuide(22, 22, 56, 56);
-      return strokePair(g.thin, false, true) + strokePair(g.thick, true, false) +
-        strokePair('M50 44V56M44 50H56', false, false);
+      return strokePair(g.thin, false, true) + strokePair(g.thick, true, false) + strokePair('M50 44V56M44 50H56', false, false);
     }
-    if (m === 'body') return strokePair('M31 12L41 8Q50 17 59 8L69 12L93 30L83 47L72 41V92H28V41L17 47L7 30Z', false, true) +
-      strokePair('M50 20V86', false, true);
+    if (m === 'body') return strokePair('M31 12L41 8Q50 17 59 8L69 12L93 30L83 47L72 41V92H28V41L17 47L7 30Z', false, true) + strokePair('M50 20V86', false, true);
     return '';
   }
   function setMode(m) { mode = m; $('guide').innerHTML = guideSvg(m); $('modeBtn').textContent = MODES[m].title; }
@@ -519,45 +574,46 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     }, 'image/jpeg', 0.85);
   };
 
-  /* ---- prompt ---- */
-  var SCHEMA = '{\n' +
-    '  "item": "推定アイテム名(例: 1990年代 Levi\'s 501 デニムパンツ)",\n' +
-    '  "summary": "2〜3文の総評。確実な点と不確かな点を分けて書く",\n' +
-    '  "brand": {"value": "ブランド名。不明なら「判別できず」", "confidence": "高|中|低", "evidence": "根拠"},\n' +
-    '  "era": {"value": "年代の幅(例: 1980年代後半〜1990年代前半)", "confidence": "高|中|低", "evidence": "根拠"},\n' +
-    '  "origin": {"value": "製造国・産地。不明なら「判別できず」", "confidence": "高|中|低", "evidence": "根拠"},\n' +
-    '  "clues": [{"part": "部位(例: ネームタグ)", "observation": "写真から読み取れたこと", "implication": "それが示すこと"}],\n' +
-    '  "authenticity": {"verdict": "問題なし|要確認|疑わしい|判定不能", "notes": ["理由や確認点"]},\n' +
-    '  "condition": ["状態に関する所見"],\n' +
-    '  "rarity": {"level": "高|中|低|不明", "note": "希少性や人気の背景。確証がなければそう書く"},\n' +
-    '  "missing_photos": ["追加で撮ると精度が上がる箇所"],\n' +
-    '  "keywords_ja": ["メルカリ・ヤフオク用の検索語"],\n' +
-    '  "keywords_en": ["eBay用の検索語"]\n' +
-    '}';
+  /* ---- prompt: 重要なものから1行ずつ出させる ---- */
   function buildPrompt() {
     var memo = $('memo').value.trim(), kind = $('kind').value.trim();
     return [
-      'あなたは古着(ヴィンテージ)の鑑定と調査に詳しい専門家です。添付した ' + files.length + ' 枚の写真を観察し、調査票を作ってください。',
+      'あなたは古着(ヴィンテージ)に詳しい鑑定士です。添付した ' + files.length + ' 枚の写真を見て、簡潔に調べてください。',
+      '',
+      '出力は「1行に1つのJSON」だけです。説明文やコードブロックは書きません。次の順番で、1行ずつ出してください(先に出す行ほど重要です)。',
+      '{"k":"item","name":"推定アイテム名","desc":"特徴を1文で","price":"¥8,000〜15,000 のように日本の中古相場の目安。判断できなければ 判定不能","price_note":"価格の根拠を20字以内"}',
+      '{"k":"brand","value":"ブランド名。不明なら 判別できず","conf":"高|中|低","why":"根拠を20字以内"}',
+      '{"k":"era","value":"年代の幅","conf":"高|中|低","why":"根拠を20字以内"}',
+      '{"k":"origin","value":"製造国。不明なら 判別できず","conf":"高|中|低","why":"根拠を20字以内"}',
+      '{"k":"auth","verdict":"問題なし|要確認|疑わしい|判定不能","note":"理由を40字以内"}',
+      '{"k":"clue","part":"部位","seen":"見えたこと","means":"示すこと"}  ← 重要な順に最大4行',
+      '{"k":"tips","photos":["追加で撮ると精度が上がる箇所"]}',
+      '{"k":"kw","ja":["メルカリ・ヤフオク用の検索語"],"en":["eBay用の検索語"]}',
       '',
       '守ること:',
-      '- 写真に写っているものだけを根拠にし、見えない情報は推測と明示する。ブランド名や年代を断定しない。',
-      '- 根拠には、タグの書体とレイアウト、RN・CA番号、製造国表記、Made in の位置、洗濯表示の形式(米国の絵表示、2016年以降のJIS表示など)、組合ラベル、ステッチ(シングル/チェーン/オーバーロック)、ジッパーの刻印(TALON、CONMAR、SCOVILL、YKKなど)、ボタン裏の刻印、リベット、プリントの著作権表記と年号、生地の質感を使う。',
-      '- 各項目に信頼度(高/中/低)を付ける。迷う場合は低にする。',
-      '- 相場や価格は書かない。',
-      '- 真贋は「問題なし/要確認/疑わしい/判定不能」で示し、写真だけで確定できないことを前提にする。',
-      '- 写真が不鮮明で読めない箇所は、読めないと書き、missing_photos に撮り直し指示を入れる。',
+      '- 写真に写っているものを根拠にする。ブランド・年代・産地は断定せず、迷う場合は信頼度を低にする。',
+      '- 根拠はタグの書体、RN・CA番号、Made in の表記、洗濯表示の形式、ステッチ、ジッパーの刻印、ボタン裏、プリントの年号などから選ぶ。',
+      '- 価格は写真とブランド・年代からの目安であり、確かな相場ではない。幅を持たせる。',
       '',
       '利用者の情報:',
-      '- 写真の内訳(撮影時に利用者が指定): ' + files.map(function (f, i) { return (i + 1) + '枚目=' + (f._label || '指定なし'); }).join('、'),
+      '- 写真の内訳(撮影時の指定): ' + files.map(function (f, i) { return (i + 1) + '枚目=' + (f._label || '指定なし'); }).join('、'),
       '- ジャンル: ' + (kind || '指定なし'),
-      '- メモ: ' + (memo || 'なし'),
-      '',
-      '次のJSONだけを日本語で返してください(keywords_en は英語)。配列は空でもよい。',
-      SCHEMA
+      '- メモ: ' + (memo || 'なし')
     ].join('\n');
   }
+  function newRep() { return { item: null, brand: null, era: null, origin: null, auth: null, clues: [], tips: [], kwJa: [], kwEn: [] }; }
+  function applyLine(rep, o) {
+    switch (o.k) {
+      case 'item': rep.item = { name: str(o.name), desc: str(o.desc), price: str(o.price), priceNote: str(o.price_note) }; break;
+      case 'brand': case 'era': case 'origin': rep[o.k] = { value: str(o.value), conf: str(o.conf), why: str(o.why) }; break;
+      case 'auth': rep.auth = { verdict: str(o.verdict), note: str(o.note) }; break;
+      case 'clue': if (rep.clues.length < 6) rep.clues.push({ part: str(o.part), seen: str(o.seen), means: str(o.means) }); break;
+      case 'tips': rep.tips = arr(o.photos).map(str).filter(Boolean); break;
+      case 'kw': rep.kwJa = arr(o.ja).map(str).filter(Boolean); rep.kwEn = arr(o.en).map(str).filter(Boolean); break;
+    }
+  }
 
-  /* ---- render ---- */
+  /* ---- render (途中経過も完成形も同じ関数) ---- */
   function confDots(c) {
     var n = c === '高' ? 3 : c === '中' ? 2 : c === '低' ? 1 : 0;
     var wrap = h('span', { class: 'conf', title: '信頼度 ' + (c || '不明') });
@@ -565,102 +621,59 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     wrap.append(document.createTextNode(' 信頼度 ' + (c || '不明')));
     return wrap;
   }
-  function fact(k, o) {
-    o = o || {};
-    return h('div', { class: 'fact' }, [
-      h('div', { class: 'k', text: k }),
-      h('div', { class: 'v', text: str(o.value) || '判別できず' }),
-      confDots(str(o.confidence)),
-      h('div', { class: 'e', text: str(o.evidence) })
-    ]);
+  function pending(text) { return h('div', { class: 'skel' }, [h('span', { class: 'spin' }), document.createTextNode(text || '調べています…')]); }
+  function fact(k, o, done) {
+    var kids = [h('div', { class: 'k', text: k })];
+    if (o) kids.push(h('div', { class: 'v', text: o.value || '判別できず' }), confDots(o.conf), h('div', { class: 'e', text: o.why }));
+    else kids.push(done ? h('div', { class: 'v', text: '判別できず' }) : pending());
+    return h('div', { class: 'fact' }, kids);
   }
   function enc(s) { return encodeURIComponent(s); }
   function linkCard(href, title, sub) {
     return h('a', { href: href, target: '_blank', rel: 'noopener noreferrer' }, [document.createTextNode(title), h('span', { text: sub })]);
   }
-  function copyChip(text) {
-    var c = h('button', { type: 'button', class: 'chip', text: text, title: 'タップでコピー' });
-    c.onclick = function () {
-      var done = function () { c.classList.add('done'); setTimeout(function () { c.classList.remove('done'); }, 1200); };
-      try { navigator.clipboard.writeText(text).then(done, function () {}); } catch (e) {}
-    };
-    return c;
-  }
+  function priceText(it) { return !it || !it.price || /判定不能|不明/.test(it.price) ? '判定不能' : it.price; }
   function section(title, body) { return h('section', { class: 'sec' }, [h('h2', { text: title })].concat(body)); }
 
-  function buildPanes(r) {
-    var a = r.authenticity || {};
-    var vcls = a.verdict === '問題なし' ? 'ok' : a.verdict === '疑わしい' ? 'bad' : 'warn';
-    var rar = r.rarity || {};
-    var kw = arr(r.keywords_ja).map(str).filter(Boolean), ke = arr(r.keywords_en).map(str).filter(Boolean);
-    var qj = kw.slice(0, 4).join(' '), qe = ke.slice(0, 4).join(' ');
-
-    var summary = [h('div', { class: 'tag' }, [
+  function renderRep(rep, box, o) {
+    o = o || {};
+    var done = !!o.done, it = rep.item;
+    box.textContent = '';
+    box.append(h('div', { class: 'tag' }, [
       h('div', { class: 'tag-head' }, [
         h('div', { class: 'label', text: 'INSPECTION TAG / 検品票' }),
-        h('h3', { text: str(r.item) || '判別できず' }),
-        h('p', { text: str(r.summary) })
+        it ? h('h3', { text: it.name || '判別できず' }) : pending('服を見ています…'),
+        it ? h('p', { text: it.desc }) : null
       ]),
-      fact('BRAND ブランド', r.brand), fact('ERA 年代', r.era), fact('ORIGIN 産地', r.origin)
-    ])];
+      h('div', { class: 'price' }, [
+        h('div', { class: 'k', text: 'PRICE 価格帯(AI推定の目安)' }),
+        it ? h('div', { class: 'v', text: priceText(it) }) : pending('価格を見積もっています…'),
+        it && it.priceNote ? h('div', { class: 'e', text: it.priceNote }) : null
+      ]),
+      fact('BRAND ブランド', rep.brand, done), fact('ERA 年代', rep.era, done), fact('ORIGIN 産地', rep.origin, done)
+    ]));
 
-    var clues = arr(r.clues), mp = arr(r.missing_photos);
-    var cluePane = [];
-    if (clues.length) cluePane.push(h('div', { class: 'clues' }, clues.map(function (c) {
-      return h('div', { class: 'clue' }, [
-        h('div', { class: 'part', text: str(c.part) }),
-        h('div', { class: 'obs', text: str(c.observation) }),
-        h('div', { class: 'imp', text: str(c.implication) })
-      ]);
-    })));
-    else cluePane.push(h('p', { class: 'note', text: '読み取れた手がかりはありませんでした。' }));
-    if (mp.length) cluePane.push(section('追加で撮ると精度が上がる写真', [h('ul', { class: 'plain' }, mp.map(function (m) { return h('li', { text: str(m) }); }))]));
+    var a = rep.auth;
+    if (a) {
+      var vcls = a.verdict === '問題なし' ? 'ok' : a.verdict === '疑わしい' ? 'bad' : 'warn';
+      box.append(section('真贋', [h('div', {}, [h('span', { class: 'pill ' + vcls, text: a.verdict || '判定不能' })]), a.note ? h('p', { style: 'margin:0', text: a.note }) : null,
+        h('p', { class: 'note', text: '写真だけでは真贋を確定できません。参考として使ってください。' })]));
+    } else if (!done) box.append(section('真贋', [pending()]));
 
-    var authPane = [h('div', {}, [h('span', { class: 'pill ' + vcls, text: str(a.verdict) || '判定不能' })])];
-    var notes = arr(a.notes).concat(arr(r.condition));
-    if (notes.length) authPane.push(h('ul', { class: 'plain' }, notes.map(function (n) { return h('li', { text: str(n) }); })));
-    authPane.push(h('p', { class: 'note', text: '写真だけでは真贋を確定できません。参考として使ってください。' }));
+    if (rep.clues.length) box.append(section('手がかり', [h('div', { class: 'clues' }, rep.clues.map(function (c) {
+      return h('div', { class: 'clue' }, [h('div', { class: 'part', text: c.part }), h('div', { class: 'obs', text: c.seen }), h('div', { class: 'imp', text: c.means })]);
+    }))]));
+    if (rep.tips.length) box.append(section('追加で撮ると精度が上がる写真', [h('ul', { class: 'plain' }, rep.tips.map(function (m) { return h('li', { text: m }); }))]));
 
-    var market = [h('p', { style: 'margin:0', text: '希少性: ' + (str(rar.level) || '不明') + '。' + str(rar.note) })];
-    var lk = [];
+    var qj = rep.kwJa.slice(0, 4).join(' '), qe = rep.kwEn.slice(0, 4).join(' '), lk = [];
     if (qj) {
       lk.push(linkCard('https://jp.mercari.com/search?keyword=' + enc(qj) + '&status=sold_out', 'メルカリ 売り切れ', qj));
       lk.push(linkCard('https://auctions.yahoo.co.jp/closedsearch/closedsearch?p=' + enc(qj), 'ヤフオク 落札相場', qj));
     }
     if (qe) lk.push(linkCard('https://www.ebay.com/sch/i.html?_nkw=' + enc(qe) + '&LH_Sold=1&LH_Complete=1', 'eBay Sold items', qe));
-    if (lk.length) market.push(h('div', { class: 'links' }, lk));
-    market.push(h('p', { class: 'note', text: '相場は推定しません。リンク先の売り切れ履歴で確認してください。' }));
-    var all = kw.concat(ke);
-    if (all.length) market.push(section('検索キーワード(タップでコピー)', [h('div', { class: 'chips' }, all.map(copyChip))]));
+    if (lk.length) box.append(section('実際の相場を確認', [h('div', { class: 'links' }, lk), h('p', { class: 'note', text: '価格帯はAIの目安です。売り切れ履歴で確かめてください。' })]));
 
-    return [
-      { label: '概要', nodes: summary },
-      { label: '手がかり', nodes: cluePane },
-      { label: '真贋', nodes: authPane },
-      { label: '相場', nodes: market },
-      { label: '質問', nodes: [buildFollowup()] }
-    ];
-  }
-
-  function renderReport(r) {
-    var body = $('resultBody'); body.textContent = '';
-    var panes = buildPanes(r);
-    var tabs = h('div', { class: 'subtabs', role: 'tablist', 'aria-label': '結果の項目' });
-    var els = panes.map(function (p) { return h('div', { class: 'pane', role: 'tabpanel', hidden: '' }, p.nodes); });
-    var btns = panes.map(function (p, i) {
-      var b = h('button', { type: 'button', class: 'sub', role: 'tab', 'aria-selected': 'false', text: p.label });
-      b.onclick = function () { select(i); };
-      return b;
-    });
-    function select(i) {
-      btns.forEach(function (b, j) { b.setAttribute('aria-selected', j === i ? 'true' : 'false'); });
-      els.forEach(function (e, j) { e.hidden = j !== i; });
-      $('views').scrollTop = 0;
-    }
-    btns.forEach(function (b) { tabs.append(b); });
-    body.append(tabs);
-    els.forEach(function (e) { body.append(e); });
-    select(0);
+    if (done && o.followup) box.append(buildFollowup());
   }
 
   /* ---- follow-up ---- */
@@ -674,7 +687,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     btn.onclick = function () { ask(inp, btn, cb, ans, src, st); };
     inp.onkeydown = function (e) { if (e.key === 'Enter' && !e.isComposing) ask(inp, btn, cb, ans, src, st); };
     return h('section', { class: 'sec' }, [
-      h('label', { for: 'fuQ', text: '調査結果について質問' }),
+      h('h2', { text: '追加で聞く' }),
       h('div', { class: 'row' }, [h('div', { style: 'flex:1 1 200px;min-width:0' }, [inp]), btn]),
       h('label', { class: 'check', for: 'fuSearch' }, [cb, document.createTextNode('Google検索を使って調べる(相場や出典の確認向け)')]),
       st, ans, src
@@ -682,14 +695,14 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   }
   async function ask(inp, btn, cb, ans, src, st) {
     var q = inp.value.trim();
-    if (!q || !lastReport) return;
+    if (!q || !lastRep) return;
     btn.disabled = true; ans.textContent = ''; src.textContent = ''; st.textContent = '';
     st.append(h('span', { class: 'spin' }), document.createTextNode('調べています…'));
     try {
       var res = await gemini(
         '古着調査の専門家として、日本語で簡潔に答えてください。断定できないことは推測と明記します。' +
-        (cb.checked ? '検索で確認できた事実と、推測を分けて書いてください。' : '相場や価格は答えません。') +
-        '\n\n直前の調査結果(JSON):\n' + JSON.stringify(lastReport) + '\n\n添付写真も参照してください。\n\n質問: ' + q,
+        (cb.checked ? '検索で確認できた事実と、推測を分けて書いてください。' : '価格は目安として答えます。') +
+        '\n\n直前の調査結果(JSON):\n' + JSON.stringify(lastRep) + '\n\n添付写真も参照してください。\n\n質問: ' + q,
         { search: cb.checked }
       );
       st.textContent = ''; ans.textContent = res.text;
@@ -699,33 +712,98 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     } finally { btn.disabled = false; }
   }
 
-  /* ---- analyze ---- */
+  /* ---- 調査 ---- */
+  function makeThumb() {
+    var f = files.filter(function (x) { return x._label === '全体'; })[0] || files[0];
+    return new Promise(function (resolve) {
+      if (!f) return resolve('');
+      var img = new Image(), url = URL.createObjectURL(f);
+      img.onload = function () {
+        var S = 200, s = Math.max(S / img.naturalWidth, S / img.naturalHeight);
+        var c = document.createElement('canvas'); c.width = S; c.height = S;
+        var w = img.naturalWidth * s, hh = img.naturalHeight * s;
+        c.getContext('2d').drawImage(img, (S - w) / 2, (S - hh) / 2, w, hh);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(''); };
+      img.src = url;
+    });
+  }
   async function analyze() {
     if (!files.length || busy) return;
     busy = true; refreshGo();
-    var body = $('resultBody'); body.textContent = '';
-    var wait = document.createTextNode('写真を読み取っています… 0秒'), t0 = Date.now();
-    var tick = setInterval(function () { wait.nodeValue = '写真を読み取っています… ' + Math.round((Date.now() - t0) / 1000) + '秒'; }, 1000);
-    body.append(h('div', { class: 'panel' }, [h('div', { class: 'status' }, [h('span', { class: 'spin' }), wait])]));
-    showView('result');
+    var rep = newRep(); lastRep = null;
+    var strip = $('strip'); strip.textContent = '';
+    files.forEach(function (f) { strip.append(h('img', { src: f._url || (f._url = URL.createObjectURL(f)), alt: '' })); });
+    shoot = 'result'; view = 'shoot'; chrome();
+    var live = $('live');
+    renderRep(rep, live, {});
+    ctl = new AbortController();
+    var thumbP = makeThumb();
     try {
-      var res = await gemini(buildPrompt(), { json: true });
-      lastReport = parseJson(res.text);
-      renderReport(lastReport);
+      await geminiLines(buildPrompt(), function (line) { applyLine(rep, line); renderRep(rep, live, {}); }, ctl.signal);
+      lastRep = rep;
+      renderRep(rep, live, { done: true, followup: true });
+      saveItem(rep, await thumbP);
     } catch (e) {
-      body.textContent = '';
-      body.append(h('div', { class: 'panel' }, [h('div', { class: 'err', text: errCopy(e) }),
-        h('p', { class: 'note', text: '「撮影」に戻って、もう一度「調査する」を押してください。' })]));
-    } finally {
-      clearInterval(tick);
-      busy = false; refreshGo();
-      if (view !== 'result') { resultSeen = false; $('dot').hidden = false; }
-    }
+      if (e && e.code === 'abort') return;
+      renderRep(rep, live, { done: true });
+      live.append(h('div', { class: 'panel' }, [h('div', { class: 'err', text: errCopy(e) }), h('p', { class: 'note', text: '「新しく撮る」から、もう一度試してください。' })]));
+      if (rep.item) saveItem(rep, await thumbP);
+    } finally { busy = false; refreshGo(); }
   }
   $('go').onclick = analyze;
+  $('again').onclick = function () {
+    if (ctl) ctl.abort();
+    busy = false;
+    files.forEach(function (f) { if (f._url) URL.revokeObjectURL(f._url); });
+    files = []; $('memo').value = ''; $('kind').value = '';
+    renderThumbs(); shoot = 'input'; chrome();
+  };
+
+  /* ---- リスト(このスマホの中に保存) ---- */
+  function loadItems() { try { var v = JSON.parse(store(LS_ITEMS) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function saveItems(list) {
+    while (list.length) {
+      try { localStorage.setItem(LS_ITEMS, JSON.stringify(list)); return; } catch (e) { list.pop(); }
+    }
+    try { localStorage.removeItem(LS_ITEMS); } catch (e) {}
+  }
+  function saveItem(rep, thumb) {
+    var list = loadItems();
+    list.unshift({ id: Date.now(), thumb: thumb, rep: rep });
+    saveItems(list.slice(0, MAX_ITEMS));
+  }
+  function renderList() {
+    var box = $('listBody'), list = loadItems(); box.textContent = '';
+    if (!list.length) {
+      box.append(h('div', { class: 'panel' }, [h('p', { class: 'note', text: 'まだ調べた服はありません。「撮影」で調査すると、ここに並びます。' })]));
+      return;
+    }
+    list.forEach(function (it, i) {
+      var r = it.rep || {}, x = r.item || {};
+      var btn = h('button', { type: 'button', class: 'itembtn' }, [
+        it.thumb ? h('img', { src: it.thumb, alt: '' }) : h('div', { class: 'noimg' }),
+        h('div', { class: 'itemtxt' }, [h('b', { text: x.name || '名称不明' }), h('span', { class: 'd', text: x.desc || '' }), h('span', { class: 'p', text: '価格帯 ' + priceText(x) })])
+      ]);
+      btn.onclick = function () {
+        $('detailBody').textContent = '';
+        if (it.thumb) $('detailBody').append(h('img', { class: 'detailThumb', src: it.thumb, alt: '' }));
+        var inner = h('div', { class: 'stack' }); $('detailBody').append(inner);
+        renderRep(r, inner, { done: true });
+        $('listMain').hidden = true; $('listDetail').hidden = false; $('views').scrollTop = 0;
+      };
+      var del = h('button', { type: 'button', class: 'del', 'aria-label': 'リストから削除', text: '×' });
+      del.onclick = function () { var l = loadItems(); l.splice(i, 1); saveItems(l); renderList(); };
+      box.append(h('div', { class: 'item' }, [btn, del]));
+    });
+  }
+  $('backList').onclick = function () { $('listDetail').hidden = true; $('listMain').hidden = false; $('views').scrollTop = 0; };
 
   renderThumbs();
-  showView(($('key').value || '').trim() ? 'photo' : 'set');
+  view = ($('key').value || '').trim() ? 'shoot' : 'set';
+  chrome();
 })();
 </script>
 </body>
