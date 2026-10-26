@@ -138,7 +138,8 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 
 .camBox { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; }
 .stage { position: absolute; inset: 0; }
-.camBox video { width: 100%; height: 100%; object-fit: cover; background: #000; display: block; }
+.camBox video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+.camBox.cover video { object-fit: cover; }
 .camTop, .camBottom { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 10px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .camTop { top: 0; padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: 24px; background: linear-gradient(rgba(0,0,0,.55), transparent); }
@@ -257,6 +258,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     </div>
     <div class="row">
       <button class="btn" id="shot" type="button">撮影</button>
+      <button class="btn ghost" id="fit" type="button" aria-pressed="false">表示: 広く</button>
       <button class="btn ghost" id="camDone" type="button">完了</button>
     </div>
   </div>
@@ -505,15 +507,21 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       $('vid').srcObject = stream; camCount(); initZoom();
     } catch (e) { closeCam(); $('camFile').click(); }
   }
+  $('fit').onclick = function () {
+    var on = $('camBox').classList.toggle('cover');
+    this.textContent = on ? '表示: 拡大' : '表示: 広く';
+    this.setAttribute('aria-pressed', on ? 'true' : 'false');
+  };
   $('cam').onclick = openCam;
   $('camDone').onclick = closeCam;
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('camBox').hidden) closeCam(); });
   $('shot').onclick = function () {
     var v = $('vid');
     if (!v.videoWidth || files.length >= MAX_PHOTOS) { camCount(); return; }
-    /* 画面に見えている範囲と同じ範囲を切り出す */
+    /* 広く表示のときは全体を保存し、拡大表示のときは画面に見えている範囲だけを保存する */
     var vw = v.videoWidth, vh = v.videoHeight, bw = v.clientWidth, bh = v.clientHeight;
-    var s = Math.max(bw / vw, bh / vh), cw = bw / s, ch = bh / s;
+    var cover = $('camBox').classList.contains('cover');
+    var s = Math.max(bw / vw, bh / vh), cw = cover ? bw / s : vw, ch = cover ? bh / s : vh;
     var c = document.createElement('canvas');
     c.width = Math.round(cw); c.height = Math.round(ch);
     c.getContext('2d').drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
