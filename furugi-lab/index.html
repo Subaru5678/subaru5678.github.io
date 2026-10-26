@@ -398,7 +398,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   }
   function addFiles(list) {
     Array.prototype.forEach.call(list, function (f) {
-      if (/^image\//.test(f.type) && files.length < MAX_PHOTOS) files.push(f);
+      if (/^image\//.test(f.type) && files.length < MAX_PHOTOS) { files.push(f); fileToPart(f).catch(function () {}); }
     });
     renderThumbs();
   }
@@ -491,7 +491,12 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
       $('vid').srcObject = stream; camCount(); initZoom();
-    } catch (e) { closeCam(); $('camFile').click(); }
+    } catch (e) {
+      closeCam();
+      $('photoHint').textContent = (e && e.name === 'NotAllowedError')
+        ? 'カメラの許可がありません。ブラウザの設定でカメラを許可してください。'
+        : 'カメラを開けませんでした。「写真を選ぶ」から撮影してください。';
+    }
   }
   $('cam').onclick = openCam;
   $('camDone').onclick = closeCam;
