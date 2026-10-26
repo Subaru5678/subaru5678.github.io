@@ -4,9 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>stylens</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <style>
 /* Layout: one screen at a time. Header on top, bottom tab bar switches 撮影 / 情報 / 結果 / 設定; the result view splits into sub-tabs so nothing needs long scrolling. */
 :root {
@@ -23,9 +20,9 @@
   --ok: #2b7549;
   --warn: #9a6200;
   --bad: #b0332b;
-  --font-display: "Dela Gothic One", "Zen Kaku Gothic New", sans-serif;
-  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-display: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  --font-body: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -41,7 +38,7 @@ body {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 header.top { padding-block: max(12px, env(safe-area-inset-top, 0px)) 10px; display: flex; align-items: baseline; gap: 10px; border-bottom: 2px dashed var(--accent); }
-header.top h1 { font-family: var(--font-display); font-weight: 400; font-size: 24px; line-height: 1.2; margin: 0; letter-spacing: .02em; }
+header.top h1 { font-family: var(--font-display); font-weight: 900; font-size: 26px; line-height: 1.2; margin: 0; letter-spacing: .02em; }
 header.top .kicker { font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
 
 .views { flex: 1; min-height: 0; overflow-y: auto; padding-block: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
@@ -102,7 +99,7 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); 
 .tag { border: 1px solid var(--line); border-radius: 6px; background: var(--paper); overflow: hidden; }
 .tag-head { padding: 16px; border-bottom: 2px dashed var(--accent); display: flex; flex-direction: column; gap: 6px; }
 .tag-head .label { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .14em; color: var(--muted); }
-.tag-head h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(20px, 5vw, 26px); line-height: 1.3; text-wrap: balance; }
+.tag-head h3 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 5vw, 26px); line-height: 1.3; text-wrap: balance; }
 .tag-head p { margin: 0; }
 .fact { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .fact:last-child { border-bottom: 0; }
@@ -136,24 +133,20 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 .note { font-size: 13px; color: var(--muted); margin: 0; }
 
 .camBox { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; }
-.stage { position: absolute; inset: 0; }
-.camBox video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
-.camBox.cover video { object-fit: cover; }
-.camTop, .camBottom { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.camTop { top: 0; padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: 24px; background: linear-gradient(rgba(0,0,0,.55), transparent); }
-.camBottom { bottom: 0; padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); padding-top: 28px; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
-.camBottom .row { justify-content: center; }
-.camBottom .btn { padding: 10px 14px; font-size: 15px; }
-.zoomRow { display: flex; align-items: center; gap: 10px; width: min(100%, 360px); font-size: 14px; }
-.zoomRow input { flex: 1; min-width: 0; accent-color: #fff; }
+.stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+.camBox video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; transform-origin: 50% 50%; }
 .guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.modes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.mode { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 14px; border-radius: 99px; border: 1px solid #8a8f9c; background: transparent; color: #fff; cursor: pointer; }
-.mode[aria-pressed="true"] { background: #fff; color: #111; border-color: #fff; }
-.mode:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.camBox .btn.ghost { color: #fff; border-color: #8a8f9c; }
-.camBox p { margin: 0; font-size: 14px; text-align: center; }
+.modeBtn { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font: inherit; font-size: 15px; font-weight: 700; padding: 8px 18px; border-radius: 99px; border: 1px solid rgba(255,255,255,.7); background: rgba(0,0,0,.45); color: #fff; cursor: pointer; white-space: nowrap; }
+.zoomTag { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.55); padding: 4px 16px; border-radius: 99px; font-weight: 700; font-size: 20px; pointer-events: none; }
+.camBottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding-top: 36px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: linear-gradient(transparent, rgba(0,0,0,.6)); }
+.shutter { grid-column: 2; width: 88px; height: 88px; border-radius: 50%; border: 5px solid #fff; background: transparent; padding: 0; cursor: pointer; position: relative; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.shutter::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: #fff; transition: transform .08s; }
+.shutter:active::after { transform: scale(.88); }
+.doneBtn { grid-column: 3; justify-self: end; min-height: 56px; padding: 0 24px; border: 0; border-radius: 28px; background: var(--accent); color: #fff; font: inherit; font-size: 18px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
+.modeBtn:focus-visible, .shutter:focus-visible, .doneBtn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 </style>
 </head>
 <body>
@@ -231,40 +224,22 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 </div>
 
 <div class="camBox" id="camBox" role="dialog" aria-label="カメラ" hidden>
-  <div class="stage">
+  <div class="stage" id="stage">
     <video id="vid" playsinline muted autoplay></video>
     <svg class="guide" id="guide" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
   </div>
-  <div class="camTop">
-    <div class="modes" role="group" aria-label="撮るもの">
-      <button class="mode" type="button" data-mode="tag" aria-pressed="true">タグ</button>
-      <button class="mode" type="button" data-mode="body" aria-pressed="false">服全体</button>
-      <button class="mode" type="button" data-mode="part" aria-pressed="false">パーツ・縫製</button>
-      <button class="mode" type="button" data-mode="free" aria-pressed="false">ガイドなし</button>
-    </div>
-  </div>
+  <button class="modeBtn" id="modeBtn" type="button">ガイド: タグ</button>
+  <div class="zoomTag" id="zoomTag" hidden></div>
   <div class="camBottom">
-    <p id="camHint"></p>
-    <p id="camCount"></p>
-    <div class="zoomRow" id="zoomRow" hidden>
-      <label for="zoom">ズーム</label>
-      <input type="range" id="zoom" min="1" max="2" step="0.1" value="1">
-      <span id="zoomVal"></span>
-    </div>
-    <div class="row">
-      <button class="btn" id="shot" type="button">撮影</button>
-      <button class="btn ghost" id="fit" type="button" aria-pressed="false">表示: 広く</button>
-      <button class="btn ghost" id="swap" type="button" hidden>レンズ切替</button>
-      <button class="btn ghost" id="native" type="button">標準カメラ</button>
-      <button class="btn ghost" id="camDone" type="button">完了</button>
-    </div>
+    <button class="shutter" id="shot" type="button" aria-label="撮影"></button>
+    <button class="doneBtn" id="camDone" type="button">完了<span id="doneN"></span></button>
   </div>
 </div>
 
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var MAX_PHOTOS = 8, MAX_EDGE = 1600;
+  var MAX_PHOTOS = 8, MAX_EDGE = 1280;
   var files = [], lastReport = null, view = 'photo', busy = false, resultSeen = true;
 
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
@@ -315,7 +290,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
         c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         URL.revokeObjectURL(url);
-        resolve({ inline_data: { mime_type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.88).split(',')[1] } });
+        resolve({ inline_data: { mime_type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.8).split(',')[1] } });
       };
       img.onerror = function () { URL.revokeObjectURL(url); reject({ code: 'image' }); };
       img.src = url;
@@ -359,8 +334,14 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     var body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.4 } };
     if (opts.json) body.generationConfig.responseMimeType = 'application/json';
     if (opts.search) body.tools = [{ google_search: {} }];
+    body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
     var payload = JSON.stringify(body);
     var r = await post(key, model, payload);
+    if (r.status === 400 && /thinking/i.test(JSON.stringify(r.data))) {
+      delete body.generationConfig.thinkingConfig;
+      payload = JSON.stringify(body);
+      r = await post(key, model, payload);
+    }
     if (r.status === 404) {
       var alt = await pickModel(key);
       if (alt && alt !== model) {
@@ -430,13 +411,9 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   drop.addEventListener('drop', function (e) { if (e.dataTransfer) addFiles(e.dataTransfer.files); });
 
   /* ---- camera ---- */
-  var stream = null, mode = 'tag';
-  var MODES = {
-    tag: { label: 'タグ', hint: 'タグを枠いっぱいに。文字がはっきり読めるところまで寄ります。' },
-    body: { label: '全体', hint: '服を平らに置き、全体が枠に収まるように撮ります。' },
-    part: { label: 'パーツ', hint: 'ジッパー、ボタン、縫い目を中央の丸に合わせます。ピントが合うまで少し離します。' },
-    free: { label: '', hint: '好きな構図で撮れます。' }
-  };
+  var stream = null, mode = 'tag', hw = false, zMin = 1, zMax = 4, zoomLevel = 1, dz = 1, zTimer = null, zRaf = 0;
+  var MODES = { tag: { label: 'タグ', title: 'ガイド: タグ' }, body: { label: '全体', title: 'ガイド: 服全体' }, part: { label: 'パーツ', title: 'ガイド: パーツ' }, free: { label: '', title: 'ガイドなし' } };
+  var ORDER = ['tag', 'body', 'part', 'free'];
   function rectGuide(x, y, w, h) {
     var L = 7;
     return {
@@ -462,98 +439,79 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       strokePair('M50 20V86', false, true);
     return '';
   }
-  function setMode(m) {
-    mode = m;
-    Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (b) { b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'); });
-    $('guide').innerHTML = guideSvg(m);
-    $('camHint').textContent = MODES[m].hint;
-  }
-  Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (b) { b.onclick = function () { setMode(b.dataset.mode); }; });
+  function setMode(m) { mode = m; $('guide').innerHTML = guideSvg(m); $('modeBtn').textContent = MODES[m].title; }
+  $('modeBtn').onclick = function () { setMode(ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length]); };
   setMode('tag');
   $('pick').onclick = function () { $('file').click(); };
   $('camFile').onchange = function (e) { addFiles(e.target.files); e.target.value = ''; };
-  function camCount() { $('camCount').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚撮影済み'; }
+  function camCount() { $('doneN').textContent = files.length ? '(' + files.length + ')' : ''; }
   function closeCam() {
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
-    stream = null; $('vid').srcObject = null; $('camBox').hidden = true; $('zoomRow').hidden = true;
+    stream = null; $('vid').srcObject = null; $('vid').style.transform = ''; $('camBox').hidden = true;
     try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
   }
-  /* ズームの下限(最も広く写る位置)から始める */
+  function toast(text) {
+    var t = $('zoomTag'); t.textContent = text; t.hidden = false;
+    clearTimeout(zTimer); zTimer = setTimeout(function () { t.hidden = true; }, 900);
+  }
+  /* ピンチでズーム。端末がズームに対応していればレンズのズーム、なければ拡大して中央を切り出す */
+  function setZoom(z) {
+    zoomLevel = Math.min(zMax, Math.max(zMin, z));
+    if (hw) {
+      var t = stream && stream.getVideoTracks()[0];
+      if (t && !zRaf) zRaf = requestAnimationFrame(function () { zRaf = 0; t.applyConstraints({ advanced: [{ zoom: zoomLevel }] }).catch(function () {}); });
+    } else { dz = zoomLevel; $('vid').style.transform = 'scale(' + dz + ')'; }
+    toast('×' + zoomLevel.toFixed(1));
+  }
   function initZoom() {
-    $('zoomRow').hidden = true;
     var t = stream && stream.getVideoTracks()[0];
     var caps = t && t.getCapabilities ? t.getCapabilities() : {};
-    if (!caps.zoom) return;
-    var z = $('zoom');
-    z.min = caps.zoom.min; z.max = caps.zoom.max; z.step = caps.zoom.step || 0.1; z.value = caps.zoom.min;
-    $('zoomVal').textContent = Number(z.value).toFixed(1) + '倍';
-    t.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] }).catch(function () {});
-    $('zoomRow').hidden = false;
+    dz = 1; $('vid').style.transform = '';
+    if (caps.zoom) {
+      hw = true; zMin = caps.zoom.min; zMax = Math.min(caps.zoom.max, zMin * 8); zoomLevel = zMin;
+      t.applyConstraints({ advanced: [{ zoom: zMin }] }).catch(function () {});
+    } else { hw = false; zMin = 1; zMax = 4; zoomLevel = 1; }
   }
-  $('zoom').oninput = function () {
-    var t = stream && stream.getVideoTracks()[0], v = Number(this.value);
-    $('zoomVal').textContent = v.toFixed(1) + '倍';
-    if (t) t.applyConstraints({ advanced: [{ zoom: v }] }).catch(function () {});
-  };
-  /* レンズ(カメラ)を指定して映像を開く。指定なしは背面カメラ */
-  var lenses = [], lensIdx = 0;
-  async function startStream(deviceId) {
-    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
-    var size = { width: { ideal: 1920 }, height: { ideal: 1440 } };
-    var video = deviceId ? Object.assign({ deviceId: { exact: deviceId } }, size) : Object.assign({ facingMode: { ideal: 'environment' } }, size);
-    stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: false });
-    $('vid').srcObject = stream; camCount(); initZoom();
-  }
-  async function listLenses() {
-    try {
-      var all = (await navigator.mediaDevices.enumerateDevices()).filter(function (d) { return d.kind === 'videoinput'; });
-      var back = all.filter(function (d) { return /back|rear|environment|背面/i.test(d.label); });
-      lenses = back.length ? back : all;
-      var cur = stream && stream.getVideoTracks()[0] && stream.getVideoTracks()[0].getSettings().deviceId;
-      lensIdx = Math.max(0, lenses.findIndex(function (d) { return d.deviceId === cur; }));
-      var sw = $('swap');
-      sw.hidden = lenses.length < 2;
-      sw.textContent = 'レンズ切替 ' + (lensIdx + 1) + '/' + lenses.length;
-    } catch (e) { $('swap').hidden = true; }
-  }
-  $('swap').onclick = async function () {
-    if (lenses.length < 2) return;
-    lensIdx = (lensIdx + 1) % lenses.length;
-    try { await startStream(lenses[lensIdx].deviceId); this.textContent = 'レンズ切替 ' + (lensIdx + 1) + '/' + lenses.length; }
-    catch (e) { $('camHint').textContent = 'このレンズは使えませんでした。もう一度押してください。'; }
-  };
-  $('native').onclick = function () { closeCam(); $('camFile').click(); };
+  var ptrs = {}, pinch = null, stage = $('stage');
+  function pdist() { var k = Object.keys(ptrs); if (k.length < 2) return 0; var a = ptrs[k[0]], b = ptrs[k[1]]; return Math.hypot(a.x - b.x, a.y - b.y); }
+  stage.addEventListener('pointerdown', function (e) { ptrs[e.pointerId] = { x: e.clientX, y: e.clientY }; if (Object.keys(ptrs).length === 2) pinch = { d: pdist(), z: zoomLevel }; });
+  stage.addEventListener('pointermove', function (e) {
+    if (!ptrs[e.pointerId]) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    if (pinch && pinch.d > 0) setZoom(pinch.z * pdist() / pinch.d);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) {
+    stage.addEventListener(n, function (e) { delete ptrs[e.pointerId]; if (Object.keys(ptrs).length < 2) pinch = null; });
+  });
+  stage.addEventListener('wheel', function (e) { e.preventDefault(); setZoom(zoomLevel * (e.deltaY < 0 ? 1.1 : 0.9)); }, { passive: false });
   async function openCam() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('camFile').click(); return; }
     $('camBox').hidden = false;
     try { if (document.fullscreenEnabled && !document.fullscreenElement) $('camBox').requestFullscreen({ navigationUI: 'hide' }).catch(function () {}); } catch (e) {}
-    try { await startStream(null); await listLenses(); } catch (e) { closeCam(); $('camFile').click(); }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+      $('vid').srcObject = stream; camCount(); initZoom();
+    } catch (e) { closeCam(); $('camFile').click(); }
   }
-  $('fit').onclick = function () {
-    var on = $('camBox').classList.toggle('cover');
-    this.textContent = on ? '表示: 拡大' : '表示: 広く';
-    this.setAttribute('aria-pressed', on ? 'true' : 'false');
-  };
   $('cam').onclick = openCam;
   $('camDone').onclick = closeCam;
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('camBox').hidden) closeCam(); });
   $('shot').onclick = function () {
     var v = $('vid');
-    if (!v.videoWidth || files.length >= MAX_PHOTOS) { camCount(); return; }
-    /* 広く表示のときは全体を保存し、拡大表示のときは画面に見えている範囲だけを保存する */
-    var vw = v.videoWidth, vh = v.videoHeight, bw = v.clientWidth, bh = v.clientHeight;
-    var cover = $('camBox').classList.contains('cover');
-    var s = Math.max(bw / vw, bh / vh), cw = cover ? bw / s : vw, ch = cover ? bh / s : vh;
+    if (!v.videoWidth) return;
+    if (files.length >= MAX_PHOTOS) { toast(MAX_PHOTOS + '枚まで'); return; }
+    var vw = v.videoWidth, vh = v.videoHeight, cw = vw / dz, ch = vh / dz;
     var c = document.createElement('canvas');
     c.width = Math.round(cw); c.height = Math.round(ch);
     c.getContext('2d').drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
+    try { $('stage').animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 160 }); } catch (e) {}
     c.toBlob(function (b) {
       if (!b) return;
-      var f = new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-      f._label = MODES[mode].label;
-      addFiles([f]);
+      var file = new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+      file._label = MODES[mode].label;
+      addFiles([file]);
       camCount();
-    }, 'image/jpeg', 0.9);
+    }, 'image/jpeg', 0.85);
   };
 
   /* ---- prompt ---- */
@@ -741,7 +699,9 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     if (!files.length || busy) return;
     busy = true; refreshGo();
     var body = $('resultBody'); body.textContent = '';
-    body.append(h('div', { class: 'panel' }, [h('div', { class: 'status' }, [h('span', { class: 'spin' }), document.createTextNode('写真を読み取っています。10秒から1分ほどかかります…')])]));
+    var wait = document.createTextNode('写真を読み取っています… 0秒'), t0 = Date.now();
+    var tick = setInterval(function () { wait.nodeValue = '写真を読み取っています… ' + Math.round((Date.now() - t0) / 1000) + '秒'; }, 1000);
+    body.append(h('div', { class: 'panel' }, [h('div', { class: 'status' }, [h('span', { class: 'spin' }), wait])]));
     showView('result');
     try {
       var res = await gemini(buildPrompt(), { json: true });
@@ -752,6 +712,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       body.append(h('div', { class: 'panel' }, [h('div', { class: 'err', text: errCopy(e) }),
         h('p', { class: 'note', text: '「撮影」に戻って、もう一度「調査する」を押してください。' })]));
     } finally {
+      clearInterval(tick);
       busy = false; refreshGo();
       if (view !== 'result') { resultSeen = false; $('dot').hidden = false; }
     }
