@@ -130,7 +130,14 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 .camBox { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; display: flex; flex-direction: column; gap: 12px; align-items: center;
   padding-block: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.camBox video { flex: 1 1 0; min-height: 0; width: 100%; object-fit: contain; background: #000; }
+.stage { position: relative; flex: 1 1 0; min-height: 0; width: 100%; }
+.camBox video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+.guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.modes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.mode { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 14px; border-radius: 99px; border: 1px solid #8a8f9c; background: transparent; color: #fff; cursor: pointer; }
+.mode[aria-pressed="true"] { background: #fff; color: #111; border-color: #fff; }
+.mode:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.thumb .lab { position: absolute; left: 3px; bottom: 3px; font-size: 11px; line-height: 1.5; background: rgba(15,19,38,.78); color: #fff; padding: 0 6px; border-radius: 3px; }
 .camBox .btn.ghost { color: #fff; border-color: #8a8f9c; }
 .camBox p { margin: 0; font-size: 14px; }
 </style>
@@ -197,7 +204,17 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 </div>
 
 <div class="camBox" id="camBox" role="dialog" aria-label="カメラ" hidden>
-  <video id="vid" playsinline muted autoplay></video>
+  <div class="modes" role="group" aria-label="撮るもの">
+    <button class="mode" type="button" data-mode="tag" aria-pressed="true">タグ</button>
+    <button class="mode" type="button" data-mode="body" aria-pressed="false">服全体</button>
+    <button class="mode" type="button" data-mode="part" aria-pressed="false">パーツ・縫製</button>
+    <button class="mode" type="button" data-mode="free" aria-pressed="false">ガイドなし</button>
+  </div>
+  <div class="stage">
+    <video id="vid" playsinline muted autoplay></video>
+    <svg class="guide" id="guide" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+  </div>
+  <p id="camHint"></p>
   <p id="camCount"></p>
   <div class="row">
     <button class="btn" id="shot" type="button">撮影</button>
@@ -312,7 +329,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       var url = f._url || (f._url = URL.createObjectURL(f));
       var b = h('button', { type: 'button', 'aria-label': (i + 1) + '枚目を削除', text: '×' });
       b.onclick = function () { URL.revokeObjectURL(url); files.splice(i, 1); renderThumbs(); };
-      box.append(h('div', { class: 'thumb' }, [h('img', { src: url, alt: (i + 1) + '枚目の写真' }), b]));
+      box.append(h('div', { class: 'thumb' }, [h('img', { src: url, alt: (i + 1) + '枚目の写真' }), b, f._label ? h('span', { class: 'lab', text: f._label }) : null]));
     });
     $('photoHint').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚。タグとパーツの接写が多いほど精度が上がります。';
     refreshGo();
@@ -332,7 +349,46 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   drop.addEventListener('drop', function (e) { if (e.dataTransfer) addFiles(e.dataTransfer.files); });
 
   /* ---- camera ---- */
-  var stream = null;
+  var stream = null, mode = 'tag';
+  var MODES = {
+    tag: { label: 'タグ', hint: 'タグを枠いっぱいに。文字がはっきり読めるところまで寄ります。' },
+    body: { label: '全体', hint: '服を平らに置き、全体が枠に収まるように撮ります。' },
+    part: { label: 'パーツ', hint: 'ジッパー、ボタン、縫い目を中央の丸に合わせます。ピントが合うまで少し離します。' },
+    free: { label: '', hint: '好きな構図で撮れます。' }
+  };
+  function rectGuide(x, y, w, h) {
+    var L = 7;
+    return {
+      thin: 'M' + x + ' ' + y + 'h' + w + 'v' + h + 'h-' + w + 'z',
+      thick: 'M' + x + ' ' + (y + L) + 'V' + y + 'H' + (x + L) + 'M' + (x + w - L) + ' ' + y + 'H' + (x + w) + 'V' + (y + L) +
+        'M' + (x + w) + ' ' + (y + h - L) + 'V' + (y + h) + 'H' + (x + w - L) + 'M' + (x + L) + ' ' + (y + h) + 'H' + x + 'V' + (y + h - L)
+    };
+  }
+  function strokePair(d, thick, dash) {
+    var ns = 'vector-effect="non-scaling-stroke" fill="none" stroke-linejoin="round" stroke-linecap="round"';
+    return '<path d="' + d + '" stroke="rgba(0,0,0,.55)" stroke-width="' + (thick ? 7 : 4) + '" ' + ns + '/>' +
+      '<path d="' + d + '" stroke="#fff" stroke-width="' + (thick ? 4 : 2) + '"' + (dash ? ' stroke-dasharray="7 6"' : '') + ' ' + ns + '/>';
+  }
+  function guideSvg(m) {
+    var g;
+    if (m === 'tag') { g = rectGuide(8, 33, 84, 34); return strokePair(g.thin, false, true) + strokePair(g.thick, true, false); }
+    if (m === 'part') {
+      g = rectGuide(22, 22, 56, 56);
+      return strokePair(g.thin, false, true) + strokePair(g.thick, true, false) +
+        strokePair('M50 44V56M44 50H56', false, false);
+    }
+    if (m === 'body') return strokePair('M31 12L41 8Q50 17 59 8L69 12L93 30L83 47L72 41V92H28V41L17 47L7 30Z', false, true) +
+      strokePair('M50 20V86', false, true);
+    return '';
+  }
+  function setMode(m) {
+    mode = m;
+    Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (b) { b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'); });
+    $('guide').innerHTML = guideSvg(m);
+    $('camHint').textContent = MODES[m].hint;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (b) { b.onclick = function () { setMode(b.dataset.mode); }; });
+  setMode('tag');
   $('pick').onclick = function () { $('file').click(); };
   $('camFile').onchange = function (e) { addFiles(e.target.files); e.target.value = ''; };
   function camCount() { $('camCount').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚撮影済み'; }
@@ -358,7 +414,9 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     c.getContext('2d').drawImage(v, 0, 0);
     c.toBlob(function (b) {
       if (!b) return;
-      addFiles([new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' })]);
+      var f = new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+      f._label = MODES[mode].label;
+      addFiles([f]);
       camCount();
     }, 'image/jpeg', 0.9);
   };
@@ -392,6 +450,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       '- 写真が不鮮明で読めない箇所は、読めないと書き、missing_photos に撮り直し指示を入れる。',
       '',
       '利用者の情報:',
+      '- 写真の内訳(撮影時に利用者が指定): ' + files.map(function (f, i) { return (i + 1) + '枚目=' + (f._label || '指定なし'); }).join('、'),
       '- ジャンル: ' + (kind || '指定なし'),
       '- メモ: ' + (memo || 'なし'),
       '',
