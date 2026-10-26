@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>古着調査所</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: 検品票 (inspection sheet). Left rail takes photos and notes, right side prints the report like a garment tag. */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --soft: #f3f5f9;
+  --paper: #ffffff;
+  --ink: #111827;
+  --muted: #4b5563;
+  --line: #d5dae5;
+  --indigo: #1f3a8a;
+  --accent: #c2410c;
+  --accent-ink: #ffffff;
+  --ok: #2b7549;
+  --warn: #9a6200;
+  --bad: #b0332b;
+  --font-display: "Dela Gothic One", "Zen Kaku Gothic New", sans-serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.75;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+header { display: flex; flex-direction: column; gap: 4px; }
+.kicker { font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(28px, 6vw, 44px); line-height: 1.15; margin: 0; letter-spacing: .02em; text-wrap: balance; }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 52ch; }
+.stitch { height: 0; border-top: 2px dashed var(--accent); opacity: .7; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 800px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.rail { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 16px; }
+@media (max-width: 800px) { .rail { position: static; } }
+
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+h2 { font-size: 13px; font-family: var(--font-mono); font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--indigo); margin: 0; }
+
+.drop { border: 2px dashed var(--line); border-radius: 6px; padding: 20px 12px; text-align: center; color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over, .drop:focus-visible { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); outline: none; }
+.drop strong { display: block; color: var(--ink); font-weight: 700; }
+.drop small { font-size: 12.5px; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.thumb { position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb button { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(15,19,38,.78); color: #fff; font-size: 14px; line-height: 1; cursor: pointer; }
+.thumb button:focus-visible { outline: 2px solid var(--accent); }
+.hint { font-size: 12.5px; color: var(--muted); margin: 0; }
+.hint a { color: var(--indigo); }
+
+label { font-size: 13px; font-weight: 700; }
+textarea, input[type="text"], input[type="password"] {
+  width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--soft);
+  border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; resize: vertical;
+}
+textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn { font: inherit; font-weight: 700; border: 0; border-radius: 4px; padding: 11px 16px; cursor: pointer; background: var(--accent); color: var(--accent-ink); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.check { display: flex; gap: 8px; align-items: center; font-weight: 400; font-size: 13.5px; }
+details.panel > summary { cursor: pointer; font-family: var(--font-mono); font-size: 13px; letter-spacing: .12em; color: var(--indigo); }
+details.panel[open] > summary { margin-bottom: 4px; }
+
+.report { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.empty { color: var(--muted); }
+.empty ol { margin: 8px 0 0; padding-left: 1.3em; }
+.status { font-family: var(--font-mono); font-size: 13px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+.err { color: var(--bad); font-weight: 500; }
+
+.tag { border: 1px solid var(--line); border-radius: 6px; background: var(--paper); overflow: hidden; }
+.tag-head { padding: 16px; border-bottom: 2px dashed var(--accent); display: flex; flex-direction: column; gap: 6px; }
+.tag-head .label { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .14em; color: var(--muted); }
+.tag-head h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(20px, 4vw, 28px); line-height: 1.3; text-wrap: balance; }
+.tag-head p { margin: 0; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) { .facts { grid-template-columns: minmax(0, 1fr); } }
+.fact { padding: 14px 16px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fact:last-child { border-right: 0; }
+@media (max-width: 640px) { .fact { border-right: 0; border-bottom: 1px solid var(--line); } .fact:last-child { border-bottom: 0; } }
+.fact .k { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .12em; color: var(--muted); }
+.fact .v { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+.fact .e { font-size: 13px; color: var(--muted); }
+.conf { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.conf i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: inline-block; }
+.conf i.on { background: var(--accent); }
+
+.sec { display: flex; flex-direction: column; gap: 10px; }
+.clues { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.clue { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 4px 14px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.clue:last-child { border-bottom: 0; }
+@media (max-width: 560px) { .clue { grid-template-columns: minmax(0, 1fr); } }
+.clue .part { font-family: var(--font-mono); font-size: 12.5px; color: var(--indigo); font-weight: 500; overflow-wrap: anywhere; }
+.clue .obs { overflow-wrap: anywhere; }
+.clue .imp { color: var(--muted); font-size: 13.5px; }
+
+.pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; border: 1px solid currentColor; }
+.pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+.links { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.links a { display: block; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); text-decoration: none; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.links a span { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.links a:hover, .links a:focus-visible { border-color: var(--accent); outline: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--font-mono); font-size: 12.5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); cursor: pointer; }
+.chip:hover, .chip:focus-visible { border-color: var(--accent); outline: none; }
+.chip.done { border-color: var(--ok); color: var(--ok); }
+.followup { white-space: pre-wrap; overflow-wrap: anywhere; }
+.note { font-size: 12.5px; color: var(--muted); }
+.btn.big { flex: 1 1 140px; padding: 14px 16px; }
+.camBox { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; display: flex; flex-direction: column; gap: 12px; align-items: center;
+  padding-block: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.camBox video { flex: 1 1 0; min-height: 0; width: 100%; object-fit: contain; background: #000; }
+.camBox .btn.ghost { color: #fff; border-color: #8a8f9c; }
+.camBox p { margin: 0; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Vintage Clothing Research</div>
+    <h1>古着調査所</h1>
+    <p>タグ、縫製、パーツの写真を渡すと、ブランド・年代・産地・真贋の手がかりを根拠つきで読み取ります。</p>
+  </header>
+  <div class="stitch" aria-hidden="true"></div>
+
+  <div class="grid">
+    <div class="rail">
+      <details class="panel" id="settings" open>
+        <summary>接続設定</summary>
+        <label for="key">Gemini APIキー</label>
+        <input type="password" id="key" autocomplete="off" placeholder="AIza…">
+        <label for="model">モデル名</label>
+        <input type="text" id="model" value="gemini-2.5-flash">
+        <div class="row"><button class="btn ghost" id="saveKey" type="button">保存</button><span class="hint" id="saveMsg"></span></div>
+        <p class="hint">キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> で無料で作れます。このブラウザの中にだけ保存され、Google 以外には送られません。無料枠に送った内容は、Google のサービス改善に使われることがあります。</p>
+      </details>
+
+      <section class="panel" aria-labelledby="h-photo">
+        <h2 id="h-photo">写真</h2>
+        <div class="row">
+          <button class="btn big" id="cam" type="button">カメラで撮る</button>
+          <button class="btn ghost big" id="pick" type="button">写真を選ぶ</button>
+        </div>
+        <div class="drop" id="drop" role="button" tabindex="0" aria-label="写真を選ぶ">
+          <small>ここへ画像をドロップしても追加できます。<br>全体・ネームタグ・洗濯表示・ジッパー・ステッチ</small>
+        </div>
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <input type="file" id="camFile" accept="image/*" capture="environment" hidden>
+        <div class="thumbs" id="thumbs"></div>
+        <p class="hint" id="photoHint"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-memo">
+        <h2 id="h-memo">わかっている情報</h2>
+        <label for="memo">メモ(任意)</label>
+        <textarea id="memo" rows="4" placeholder="例: 古着屋で購入。袖に擦れあり。ボタン裏に「J」の刻印。"></textarea>
+        <label for="kind">ジャンル(任意)</label>
+        <input type="text" id="kind" placeholder="例: デニム / ミリタリー / バンドT / スウェット">
+        <button class="btn" id="go" disabled>調査する</button>
+        <p class="hint" id="goHint"></p>
+      </section>
+    </div>
+
+    <main class="report" id="report" aria-live="polite">
+      <section class="panel empty">
+        <h2>使い方</h2>
+        <ol>
+          <li>左の「接続設定」にGeminiのAPIキーを入れて保存します。</li>
+          <li>全体とタグの写真を入れます。ジッパーやステッチの接写があると年代の絞り込みが進みます。</li>
+          <li>「調査する」を押すと、検品票の形で結果が出ます。</li>
+        </ol>
+        <p class="note">相場は推定せず、メルカリ・ヤフオク・eBay の売り切れ検索へのリンクを作ります。追加の質問では、Google検索を使って調べさせることもできます。</p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="camBox" id="camBox" role="dialog" aria-label="カメラ" hidden>
+  <video id="vid" playsinline muted autoplay></video>
+  <p id="camCount"></p>
+  <div class="row">
+    <button class="btn" id="shot" type="button">撮影</button>
+    <button class="btn ghost" id="camDone" type="button">完了</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var MAX_PHOTOS = 8, MAX_EDGE = 1600;
+  var files = [], lastReport = null;
+
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+  function h(tag, attrs, kids) {
+    var el = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'class') el.className = attrs[k];
+      else if (k === 'text') el.textContent = attrs[k];
+      else el.setAttribute(k, attrs[k]);
+    }
+    (kids || []).forEach(function (c) { if (c) el.append(c); });
+    return el;
+  }
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function str(v) { return typeof v === 'string' ? v : (v == null ? '' : String(v)); }
+
+  /* ---- settings ---- */
+  $('key').value = store('gemini_key') || '';
+  $('model').value = store('gemini_model') || 'gemini-2.5-flash';
+  if ($('key').value) $('settings').open = false;
+  $('saveKey').onclick = function () {
+    store('gemini_key', $('key').value.trim());
+    store('gemini_model', $('model').value.trim() || 'gemini-2.5-flash');
+    $('saveMsg').textContent = '保存しました';
+    refreshGo();
+  };
+  $('key').oninput = refreshGo;
+
+  /* ---- Gemini ---- */
+  function fileToPart(f) {
+    if (f._part) return f._part;
+    f._part = new Promise(function (resolve, reject) {
+      var img = new Image(), url = URL.createObjectURL(f);
+      img.onload = function () {
+        var s = Math.min(1, MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve({ inline_data: { mime_type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.88).split(',')[1] } });
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject({ code: 'image' }); };
+      img.src = url;
+    });
+    return f._part;
+  }
+  async function gemini(text, opts) {
+    opts = opts || {};
+    var key = ($('key').value || '').trim(), model = ($('model').value || '').trim() || 'gemini-2.5-flash';
+    if (!key) throw { code: 'nokey' };
+    var parts = await Promise.all(files.map(fileToPart));
+    parts.push({ text: text });
+    var body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.4 } };
+    if (opts.json) body.generationConfig.responseMimeType = 'application/json';
+    if (opts.search) body.tools = [{ google_search: {} }];
+    var res;
+    try {
+      res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body)
+      });
+    } catch (e) { throw { code: 'network' }; }
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok) {
+      var m = (data.error && data.error.message) || '';
+      throw { code: res.status === 429 ? 'rate' : res.status === 404 ? 'model' : (res.status === 400 || res.status === 403) && /API key|API_KEY/i.test(m) ? 'badkey' : 'api', detail: m };
+    }
+    var cand = (data.candidates || [])[0];
+    if (!cand || !cand.content || !cand.content.parts) throw { code: 'blocked', detail: data.promptFeedback && data.promptFeedback.blockReason };
+    var out = cand.content.parts.map(function (p) { return p.text || ''; }).join('');
+    var gm = cand.groundingMetadata || {};
+    return { text: out, sources: arr(gm.groundingChunks).map(function (c) { return c.web; }).filter(Boolean) };
+  }
+  function parseJson(t) {
+    try { return JSON.parse(t); } catch (e) {}
+    var a = t.indexOf('{'), b = t.lastIndexOf('}');
+    if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {} }
+    throw { code: 'json' };
+  }
+  var ERR = {
+    nokey: 'APIキーが未設定です。「接続設定」に入れて保存してください。',
+    badkey: 'APIキーが正しくありません。Google AI Studio で作ったキーを確認してください。',
+    model: 'このモデル名は使えません。「接続設定」のモデル名を、AI Studio に出ているものに変えてください。',
+    rate: '無料枠の上限に達しました。しばらく待つか、明日もう一度試してください。',
+    network: '通信に失敗しました。接続を確認してもう一度押してください。',
+    blocked: 'Gemini が回答を返しませんでした。写真やメモを変えて試してください。',
+    json: '結果の形式が崩れました。もう一度押してください。',
+    image: '読み込めない画像が含まれています。別の画像に差し替えてください。',
+    api: 'Gemini がエラーを返しました。'
+  };
+  function errCopy(e) { return (ERR[e && e.code] || ERR.api) + (e && e.code === 'api' && e.detail ? ' (' + e.detail.slice(0, 120) + ')' : ''); }
+
+  /* ---- photos ---- */
+  function refreshGo() {
+    var hasKey = !!($('key').value || '').trim();
+    $('go').disabled = !hasKey || files.length === 0;
+    $('goHint').textContent = !hasKey ? '先に「接続設定」でAPIキーを保存してください。' : (files.length ? '' : '写真を1枚以上入れてください。');
+  }
+  function renderThumbs() {
+    var box = $('thumbs'); box.textContent = '';
+    files.forEach(function (f, i) {
+      var url = f._url || (f._url = URL.createObjectURL(f));
+      var b = h('button', { type: 'button', 'aria-label': (i + 1) + '枚目を削除', text: '×' });
+      b.onclick = function () { URL.revokeObjectURL(url); files.splice(i, 1); renderThumbs(); };
+      box.append(h('div', { class: 'thumb' }, [h('img', { src: url, alt: (i + 1) + '枚目の写真' }), b]));
+    });
+    $('photoHint').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚。タグとパーツの接写が多いほど精度が上がります。';
+    refreshGo();
+  }
+  function addFiles(list) {
+    Array.prototype.forEach.call(list, function (f) {
+      if (/^image\//.test(f.type) && files.length < MAX_PHOTOS) files.push(f);
+    });
+    renderThumbs();
+  }
+  var drop = $('drop');
+  drop.onclick = function () { $('file').click(); };
+  drop.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
+  $('file').onchange = function (e) { addFiles(e.target.files); e.target.value = ''; };
+  ['dragenter', 'dragover'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer) addFiles(e.dataTransfer.files); });
+
+  /* ---- camera ---- */
+  var stream = null;
+  $('pick').onclick = function () { $('file').click(); };
+  $('camFile').onchange = function (e) { addFiles(e.target.files); e.target.value = ''; };
+  function camCount() { $('camCount').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚撮影済み'; }
+  function closeCam() {
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    stream = null; $('vid').srcObject = null; $('camBox').hidden = true;
+  }
+  async function openCam() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('camFile').click(); return; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } }, audio: false });
+      $('vid').srcObject = stream; $('camBox').hidden = false; camCount();
+    } catch (e) { $('camFile').click(); }
+  }
+  $('cam').onclick = openCam;
+  $('camDone').onclick = closeCam;
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('camBox').hidden) closeCam(); });
+  $('shot').onclick = function () {
+    var v = $('vid');
+    if (!v.videoWidth || files.length >= MAX_PHOTOS) { camCount(); return; }
+    var c = document.createElement('canvas');
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    c.toBlob(function (b) {
+      if (!b) return;
+      addFiles([new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' })]);
+      camCount();
+    }, 'image/jpeg', 0.9);
+  };
+
+  /* ---- prompt ---- */
+  var SCHEMA = '{\n' +
+    '  "item": "推定アイテム名(例: 1990年代 Levi\'s 501 デニムパンツ)",\n' +
+    '  "summary": "2〜3文の総評。確実な点と不確かな点を分けて書く",\n' +
+    '  "brand": {"value": "ブランド名。不明なら「判別できず」", "confidence": "高|中|低", "evidence": "根拠"},\n' +
+    '  "era": {"value": "年代の幅(例: 1980年代後半〜1990年代前半)", "confidence": "高|中|低", "evidence": "根拠"},\n' +
+    '  "origin": {"value": "製造国・産地。不明なら「判別できず」", "confidence": "高|中|低", "evidence": "根拠"},\n' +
+    '  "clues": [{"part": "部位(例: ネームタグ)", "observation": "写真から読み取れたこと", "implication": "それが示すこと"}],\n' +
+    '  "authenticity": {"verdict": "問題なし|要確認|疑わしい|判定不能", "notes": ["理由や確認点"]},\n' +
+    '  "condition": ["状態に関する所見"],\n' +
+    '  "rarity": {"level": "高|中|低|不明", "note": "希少性や人気の背景。確証がなければそう書く"},\n' +
+    '  "missing_photos": ["追加で撮ると精度が上がる箇所"],\n' +
+    '  "keywords_ja": ["メルカリ・ヤフオク用の検索語"],\n' +
+    '  "keywords_en": ["eBay用の検索語"]\n' +
+    '}';
+  function buildPrompt() {
+    var memo = $('memo').value.trim(), kind = $('kind').value.trim();
+    return [
+      'あなたは古着(ヴィンテージ)の鑑定と調査に詳しい専門家です。添付した ' + files.length + ' 枚の写真を観察し、調査票を作ってください。',
+      '',
+      '守ること:',
+      '- 写真に写っているものだけを根拠にし、見えない情報は推測と明示する。ブランド名や年代を断定しない。',
+      '- 根拠には、タグの書体とレイアウト、RN・CA番号、製造国表記、Made in の位置、洗濯表示の形式(米国の絵表示、2016年以降のJIS表示など)、組合ラベル、ステッチ(シングル/チェーン/オーバーロック)、ジッパーの刻印(TALON、CONMAR、SCOVILL、YKKなど)、ボタン裏の刻印、リベット、プリントの著作権表記と年号、生地の質感を使う。',
+      '- 各項目に信頼度(高/中/低)を付ける。迷う場合は低にする。',
+      '- 相場や価格は書かない。',
+      '- 真贋は「問題なし/要確認/疑わしい/判定不能」で示し、写真だけで確定できないことを前提にする。',
+      '- 写真が不鮮明で読めない箇所は、読めないと書き、missing_photos に撮り直し指示を入れる。',
+      '',
+      '利用者の情報:',
+      '- ジャンル: ' + (kind || '指定なし'),
+      '- メモ: ' + (memo || 'なし'),
+      '',
+      '次のJSONだけを日本語で返してください(keywords_en は英語)。配列は空でもよい。',
+      SCHEMA
+    ].join('\n');
+  }
+
+  /* ---- render ---- */
+  function confDots(c) {
+    var n = c === '高' ? 3 : c === '中' ? 2 : c === '低' ? 1 : 0;
+    var wrap = h('span', { class: 'conf', title: '信頼度 ' + (c || '不明') });
+    for (var i = 0; i < 3; i++) wrap.append(h('i', { class: i < n ? 'on' : '' }));
+    wrap.append(document.createTextNode(' 信頼度 ' + (c || '不明')));
+    return wrap;
+  }
+  function fact(k, o) {
+    o = o || {};
+    return h('div', { class: 'fact' }, [
+      h('div', { class: 'k', text: k }),
+      h('div', { class: 'v', text: str(o.value) || '判別できず' }),
+      confDots(str(o.confidence)),
+      h('div', { class: 'e', text: str(o.evidence) })
+    ]);
+  }
+  function enc(s) { return encodeURIComponent(s); }
+  function linkCard(href, title, sub) {
+    return h('a', { href: href, target: '_blank', rel: 'noopener noreferrer' }, [document.createTextNode(title), h('span', { text: sub })]);
+  }
+  function copyChip(text) {
+    var c = h('button', { type: 'button', class: 'chip', text: text, title: 'クリックでコピー' });
+    c.onclick = function () {
+      var done = function () { c.classList.add('done'); setTimeout(function () { c.classList.remove('done'); }, 1200); };
+      try { navigator.clipboard.writeText(text).then(done, function () {}); } catch (e) {}
+    };
+    return c;
+  }
+  function section(title, body) { return h('section', { class: 'sec' }, [h('h2', { text: title })].concat(body)); }
+
+  function renderReport(r) {
+    var out = $('report'); out.textContent = '';
+    var a = r.authenticity || {};
+    var vcls = a.verdict === '問題なし' ? 'ok' : a.verdict === '疑わしい' ? 'bad' : 'warn';
+    out.append(h('div', { class: 'tag' }, [
+      h('div', { class: 'tag-head' }, [
+        h('div', { class: 'label', text: 'INSPECTION TAG / 検品票' }),
+        h('h3', { text: str(r.item) || '判別できず' }),
+        h('p', { text: str(r.summary) })
+      ]),
+      h('div', { class: 'facts' }, [fact('BRAND ブランド', r.brand), fact('ERA 年代', r.era), fact('ORIGIN 産地', r.origin)])
+    ]));
+
+    var clues = arr(r.clues);
+    if (clues.length) out.append(section('読み取った手がかり', [h('div', { class: 'clues' }, clues.map(function (c) {
+      return h('div', { class: 'clue' }, [
+        h('div', { class: 'part', text: str(c.part) }),
+        h('div', {}, [h('div', { class: 'obs', text: str(c.observation) }), h('div', { class: 'imp', text: str(c.implication) })])
+      ]);
+    }))]));
+
+    var authBody = [h('div', {}, [h('span', { class: 'pill ' + vcls, text: str(a.verdict) || '判定不能' })])];
+    var notes = arr(a.notes).concat(arr(r.condition));
+    if (notes.length) authBody.push(h('ul', { class: 'plain' }, notes.map(function (n) { return h('li', { text: str(n) }); })));
+    out.append(section('真贋と状態', authBody));
+
+    var rar = r.rarity || {};
+    var kw = arr(r.keywords_ja).map(str).filter(Boolean), ke = arr(r.keywords_en).map(str).filter(Boolean);
+    var qj = kw.slice(0, 4).join(' '), qe = ke.slice(0, 4).join(' ');
+    var market = [h('p', { text: '希少性: ' + (str(rar.level) || '不明') + '。' + str(rar.note) })];
+    var lk = [];
+    if (qj) {
+      lk.push(linkCard('https://jp.mercari.com/search?keyword=' + enc(qj) + '&status=sold_out', 'メルカリ 売り切れ', qj));
+      lk.push(linkCard('https://auctions.yahoo.co.jp/closedsearch/closedsearch?p=' + enc(qj), 'ヤフオク 落札相場', qj));
+    }
+    if (qe) lk.push(linkCard('https://www.ebay.com/sch/i.html?_nkw=' + enc(qe) + '&LH_Sold=1&LH_Complete=1', 'eBay Sold items', qe));
+    if (lk.length) market.push(h('div', { class: 'links' }, lk));
+    market.push(h('p', { class: 'note', text: '相場は推定しません。上のリンク先の売り切れ履歴で確認してください。' }));
+    out.append(section('希少性と相場の調べ方', market));
+
+    var mp = arr(r.missing_photos);
+    if (mp.length) out.append(section('追加で撮ると精度が上がる写真', [h('ul', { class: 'plain' }, mp.map(function (m) { return h('li', { text: str(m) }); }))]));
+
+    var all = kw.concat(ke);
+    if (all.length) out.append(section('検索キーワード(クリックでコピー)', [h('div', { class: 'chips' }, all.map(copyChip))]));
+
+    out.append(buildFollowup());
+  }
+
+  /* ---- follow-up ---- */
+  function buildFollowup() {
+    var ans = h('div', { class: 'followup' });
+    var src = h('div', { class: 'links' });
+    var st = h('div', { class: 'status' });
+    var inp = h('input', { type: 'text', id: 'fuQ', placeholder: '例: このジッパーなら何年代まで絞れる?' });
+    var btn = h('button', { type: 'button', class: 'btn', text: '質問する' });
+    var cb = h('input', { type: 'checkbox', id: 'fuSearch' });
+    btn.onclick = function () { ask(inp, btn, cb, ans, src, st); };
+    inp.onkeydown = function (e) { if (e.key === 'Enter' && !e.isComposing) ask(inp, btn, cb, ans, src, st); };
+    return h('section', { class: 'sec' }, [
+      h('h2', { text: '追加で聞く' }),
+      h('label', { for: 'fuQ', text: '調査結果について質問' }),
+      h('div', { class: 'row' }, [h('div', { style: 'flex:1 1 220px;min-width:0' }, [inp]), btn]),
+      h('label', { class: 'check', for: 'fuSearch' }, [cb, document.createTextNode('Google検索を使って調べる(相場や出典の確認向け)')]),
+      st, ans, src
+    ]);
+  }
+  async function ask(inp, btn, cb, ans, src, st) {
+    var q = inp.value.trim();
+    if (!q || !lastReport) return;
+    btn.disabled = true; ans.textContent = ''; src.textContent = ''; st.textContent = '';
+    st.append(h('span', { class: 'spin' }), document.createTextNode('調べています…'));
+    try {
+      var res = await gemini(
+        '古着調査の専門家として、日本語で簡潔に答えてください。断定できないことは推測と明記します。' +
+        (cb.checked ? '検索で確認できた事実と、推測を分けて書いてください。' : '相場や価格は答えません。') +
+        '\n\n直前の調査結果(JSON):\n' + JSON.stringify(lastReport) + '\n\n添付写真も参照してください。\n\n質問: ' + q,
+        { search: cb.checked }
+      );
+      st.textContent = ''; ans.textContent = res.text;
+      res.sources.slice(0, 6).forEach(function (s) { if (/^https?:/.test(s.uri || '')) src.append(linkCard(s.uri, str(s.title) || '出典', '出典')); });
+    } catch (e) {
+      st.textContent = ''; st.append(h('span', { class: 'err', text: errCopy(e) }));
+    } finally { btn.disabled = false; }
+  }
+
+  /* ---- analyze ---- */
+  async function analyze() {
+    if (!files.length) return;
+    var go = $('go'); go.disabled = true;
+    var out = $('report'); out.textContent = '';
+    out.append(h('section', { class: 'panel' }, [h('div', { class: 'status' }, [h('span', { class: 'spin' }), document.createTextNode('写真を読み取っています。10秒から1分ほどかかります…')])]));
+    if (window.matchMedia('(max-width: 800px)').matches) out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+      var res = await gemini(buildPrompt(), { json: true });
+      lastReport = parseJson(res.text);
+      renderReport(lastReport);
+    } catch (e) {
+      out.textContent = '';
+      out.append(h('section', { class: 'panel' }, [h('div', { class: 'err', text: errCopy(e) })]));
+    } finally { refreshGo(); }
+  }
+  $('go').onclick = analyze;
+
+  renderThumbs();
+})();
+</script>
+</body>
+</html>
