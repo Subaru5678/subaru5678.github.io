@@ -110,7 +110,8 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); 
 .fact { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .fact:last-child { border-bottom: 0; }
 .fact .v { font-weight: 700; font-size: 18px; overflow-wrap: anywhere; }
-.skel { color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.skel { color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; padding-block: 2px; }
+.skel .spin { width: 11px; height: 11px; border-width: 2px; }
 .conf { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
 .conf i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: inline-block; }
 .conf i.on { background: var(--accent); }
@@ -706,7 +707,8 @@ details.opt[open] > summary { margin-bottom: 10px; }
   function fact(k, o, done) {
     var kids = [h('div', { class: 'k', text: k })];
     if (o) kids.push(h('div', { class: 'v', text: o.value || '判別できず' }), confDots(o.conf), h('div', { class: 'e', text: o.why }));
-    else kids.push(done ? h('div', { class: 'v', text: '判別できず' }) : pending());
+    else if (done) kids.push(h('div', { class: 'v', text: '判別できず' }));
+    else return null;
     return h('div', { class: 'fact' }, kids);
   }
   function enc(s) { return encodeURIComponent(s); }
@@ -720,15 +722,16 @@ details.opt[open] > summary { margin-bottom: 10px; }
     o = o || {};
     var done = !!o.done, it = rep.item;
     box.textContent = '';
+    if (!it && !done) { box.append(pending('服を見ています…')); return; }
     box.append(h('div', { class: 'tag' }, [
       h('div', { class: 'tag-head' }, [
         h('div', { class: 'label', text: 'INSPECTION TAG / 検品票' }),
-        it ? h('h3', { text: it.name || '判別できず' }) : pending('服を見ています…'),
-        it ? h('p', { text: it.desc }) : null
+        h('h3', { text: (it && it.name) || '判別できず' }),
+        it && it.desc ? h('p', { text: it.desc }) : null
       ]),
       h('div', { class: 'price' }, [
         h('div', { class: 'k', text: 'PRICE 価格帯(AI推定の目安)' }),
-        it ? h('div', { class: 'v', text: priceText(it) }) : pending('価格を見積もっています…'),
+        h('div', { class: 'v', text: priceText(it) }),
         it && it.priceNote ? h('div', { class: 'e', text: it.priceNote }) : null
       ]),
       fact('BRAND ブランド', rep.brand, done), fact('ERA 年代', rep.era, done), fact('ORIGIN 産地', rep.origin, done)
@@ -739,7 +742,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
       var vcls = a.verdict === '問題なし' ? 'ok' : a.verdict === '疑わしい' ? 'bad' : 'warn';
       box.append(section('真贋', [h('div', {}, [h('span', { class: 'pill ' + vcls, text: a.verdict || '判定不能' })]), a.note ? h('p', { style: 'margin:0', text: a.note }) : null,
         h('p', { class: 'note', text: '写真だけでは真贋を確定できません。参考として使ってください。' })]));
-    } else if (!done) box.append(section('真贋', [pending()]));
+    }
 
     var cd = rep.cond;
     if (cd) box.append(section('状態', [h('div', {}, [h('span', { class: 'pill ' + (cd.grade === '良好' ? 'ok' : cd.grade === '難あり' ? 'bad' : 'warn'), text: cd.grade || '判定不能' })]), cd.note ? h('p', { style: 'margin:0', text: cd.note }) : null]));
@@ -757,6 +760,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
     if (qe) lk.push(linkCard('https://www.ebay.com/sch/i.html?_nkw=' + enc(qe) + '&LH_Sold=1&LH_Complete=1', 'eBay Sold items', qe));
     if (lk.length) box.append(section('実際の相場を確認', [h('div', { class: 'links' }, lk), h('p', { class: 'note', text: '価格帯はAIの目安です。売り切れ履歴で確かめてください。' })].concat(done && o.followup ? [buildMarket(rep)] : [])));
 
+    if (!done) box.append(pending('続きを調べています…'));
     if (done && it) box.append(buildCopy(rep));
     if (done && o.followup) box.append(buildFollowup());
   }
