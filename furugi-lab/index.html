@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>stylens</title>
 <meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23c2410c'/%3E%3Cpath d='M20 18l7-4q5 6 10 0l7 4 10 9-7 6-5-4v25H22V29l-5 4-7-6z' fill='none' stroke='%23fff' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
@@ -146,6 +148,11 @@ details.opt > summary { cursor: pointer; font-weight: 700; font-size: 15px; }
 details.opt[open] > summary { margin-bottom: 10px; }
 @media (max-width: 400px) { header.top .kicker { display: none; } }
 
+.fav { position: absolute; right: 6px; bottom: 6px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; }
+.fav[aria-pressed="true"] { color: #d98a00; }
+.fav:focus-visible { outline: 2px solid var(--accent); }
+.profit { margin: 0; font-weight: 700; }
+
 /* list */
 .items { display: flex; flex-direction: column; gap: 10px; }
 .item { position: relative; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
@@ -225,7 +232,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
     <!-- リスト -->
     <section class="view" id="view-list" aria-label="リスト" hidden>
       <div class="stack" id="listMain">
-        <div class="row"><input type="text" id="q" placeholder="リスト内を検索(名前・ブランド)" hidden style="flex:1 1 180px;min-width:0"><select id="sort" hidden aria-label="並び順"><option value="new">新しい順</option><option value="high">価格が高い順</option><option value="low">価格が低い順</option></select></div>
+        <div class="row"><input type="text" id="q" placeholder="リスト内を検索(名前・ブランド)" hidden style="flex:1 1 180px;min-width:0"><select id="sort" hidden aria-label="並び順"><option value="new">新しい順</option><option value="high">価格が高い順</option><option value="low">価格が低い順</option><option value="fav">★お気に入りのみ</option></select></div>
         <div class="items" id="listBody"></div>
         <div><button class="btn ghost small" id="csv" type="button" hidden>リストをコピー(表計算用)</button> <span class="hint" id="csvMsg"></span></div>
       </div>
@@ -247,7 +254,16 @@ details.opt[open] > summary { margin-bottom: 10px; }
         <details><summary class="hint">APIキーの作り方</summary>
           <ol class="hint"><li>下のリンクから Google AI Studio を開き、Google アカウントでログインします。</li><li>「Get API key」→「Create API key」を押します。</li><li>表示された「AIza…」をコピーして、上の欄に貼り付け、「保存」を押します。</li></ol>
         </details>
+        <label class="check" for="sound"><input type="checkbox" id="sound"> 撮影音を鳴らす(端末の音量に従います)</label>
         <p class="hint">キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> で無料で作れます。このブラウザの中にだけ保存され、Google 以外には送られません。無料枠に送った内容は、Google のサービス改善に使われることがあります。</p>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h2>リストのバックアップ</h2>
+        <p class="hint">リストはこのスマホの中にだけ保存されます。機種変更やブラウザのデータ削除に備えて、コピーして保存しておけます。</p>
+        <div class="row"><button class="btn ghost small" id="bkCopy" type="button">バックアップをコピー</button><span class="hint" id="bkMsg"></span></div>
+        <label for="bkText">復元するときは、ここに貼り付けて「復元」を押します</label>
+        <textarea id="bkText" rows="3" placeholder="コピーしたバックアップを貼り付け"></textarea>
+        <div><button class="btn ghost small" id="bkRestore" type="button">復元</button></div>
       </div>
     </section>
   </div>
@@ -563,6 +579,19 @@ details.opt[open] > summary { margin-bottom: 10px; }
     return '';
   }
   function setMode(m) { mode = m; $('guide').innerHTML = guideSvg(m); $('modeBtn').textContent = MODES[m].title; }
+  var audioCtx = null;
+  $('sound').checked = store('stylens_sound') === '1';
+  $('sound').onchange = function () { store('stylens_sound', this.checked ? '1' : '0'); if (this.checked) playClick(); };
+  function playClick() {
+    try {
+      var A = window.AudioContext || window.webkitAudioContext; if (!A) return;
+      audioCtx = audioCtx || new A();
+      var t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'square'; o.frequency.setValueAtTime(1800, t); o.frequency.exponentialRampToValueAtTime(600, t + 0.05);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.2, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.09);
+    } catch (e) {}
+  }
   $('modeBtn').onclick = function () { setMode(ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length]); };
   setMode('tag');
   $('pick').onclick = function () { $('file').click(); };
@@ -635,6 +664,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
     c.getContext('2d').drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
     try { $('stage').animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 160 }); } catch (e) {}
     try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
+    if ($('sound').checked) playClick();
     c.toBlob(function (b) {
       if (!b) return;
       var file = new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
@@ -934,10 +964,22 @@ details.opt[open] > summary { margin-bottom: 10px; }
   function fmtDate(ts) { var d = new Date(ts); return isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
   function priceLow(x) { var m = /(\d[\d,]*)/.exec(str(x && x.price)); return m ? parseInt(m[1].replace(/,/g, ''), 10) : -1; }
   /* AIの答えを自分で直せる(名前・価格帯) */
+  function priceRange(x) {
+    var n = str(x && x.price).replace(/,/g, '').match(/\d+/g) || [];
+    return n.length ? { lo: parseInt(n[0], 10), hi: parseInt(n[1] || n[0], 10) } : null;
+  }
+  function yen(v) { return (v < 0 ? '-' : '+') + '¥' + Math.abs(v).toLocaleString('ja-JP'); }
+  function profitText(x, cost) {
+    var r = priceRange(x);
+    if (!r || !(cost > 0)) return '';
+    return '想定利益 ' + yen(r.lo - cost) + '〜' + yen(r.hi - cost) + '(手数料・送料は含みません)';
+  }
   function buildEdit(it) {
     var x = (it.rep && it.rep.item) || {};
     var nm = h('input', { type: 'text', value: x.name || '', 'aria-label': '名前' });
     var pr = h('input', { type: 'text', value: /判定不能|不明/.test(x.price || '') ? '' : (x.price || ''), placeholder: '例: ¥8,000〜15,000', 'aria-label': '価格帯' });
+    var cost = h('input', { type: 'text', inputmode: 'numeric', value: it.cost ? String(it.cost) : '', placeholder: '例: 3000', 'aria-label': '仕入れ値' });
+    var pf = h('p', { class: 'profit', text: profitText(x, it.cost) });
     var msg = h('span', { class: 'hint' });
     var btn = h('button', { type: 'button', class: 'btn ghost small', text: '修正を保存' });
     btn.onclick = function () {
@@ -945,9 +987,10 @@ details.opt[open] > summary { margin-bottom: 10px; }
       if (!hit) return;
       hit.rep = hit.rep || {}; hit.rep.item = hit.rep.item || {};
       hit.rep.item.name = nm.value.trim() || hit.rep.item.name; hit.rep.item.price = pr.value.trim() || hit.rep.item.price;
-      saveItems(list); msg.textContent = '保存しました'; renderList();
+      hit.cost = parseInt(cost.value.replace(/[^\d]/g, ''), 10) || 0;
+      saveItems(list); msg.textContent = '保存しました'; pf.textContent = profitText(hit.rep.item, hit.cost); renderList();
     };
-    return section('名前・価格帯を直す', [h('label', { text: '名前' }), nm, h('label', { text: '価格帯' }), pr, h('div', { class: 'row' }, [btn, msg])]);
+    return section('名前・価格帯を直す', [h('label', { text: '名前' }), nm, h('label', { text: '価格帯' }), pr, h('label', { text: '仕入れ値(円)' }), cost, pf, h('div', { class: 'row' }, [btn, msg])]);
   }
   function renderList() {
     var box = $('listBody'), all = loadItems(), q = $('q').value.trim().toLowerCase(); box.textContent = '';
@@ -960,11 +1003,12 @@ details.opt[open] > summary { margin-bottom: 10px; }
     var sv = $('sort').value;
     if (sv === 'high') list = list.slice().sort(function (a, b) { return priceLow(b.rep && b.rep.item) - priceLow(a.rep && a.rep.item); });
     else if (sv === 'low') list = list.slice().sort(function (a, b) { var x = priceLow(a.rep && a.rep.item), y = priceLow(b.rep && b.rep.item); return (x < 0 ? 1e12 : x) - (y < 0 ? 1e12 : y); });
+    if (sv === 'fav') list = list.filter(function (x) { return x.fav; });
     if (!all.length) {
       box.append(h('div', { class: 'panel' }, [h('p', { class: 'note', text: 'まだ調べた服はありません。「撮影」で調査すると、ここに並びます。' })]));
       return;
     }
-    if (!list.length) { box.append(h('p', { class: 'note', text: '見つかりませんでした。' })); return; }
+    if (!list.length) { box.append(h('p', { class: 'note', text: sv === 'fav' ? '★を付けた服はまだありません。' : '見つかりませんでした。' })); return; }
     list.forEach(function (it) {
       var r = it.rep || {}, x = r.item || {};
       var btn = h('button', { type: 'button', class: 'itembtn' }, [
@@ -982,23 +1026,39 @@ details.opt[open] > summary { margin-bottom: 10px; }
       };
       var del = h('button', { type: 'button', class: 'del', 'aria-label': 'リストから削除', text: '×' });
       del.onclick = function () { saveItems(loadItems().filter(function (x) { return x.id !== it.id; })); renderList(); chrome(); };
-      box.append(h('div', { class: 'item' }, [btn, del]));
+      var fav = h('button', { type: 'button', class: 'fav', 'aria-label': 'お気に入り', 'aria-pressed': it.fav ? 'true' : 'false', text: it.fav ? '★' : '☆' });
+      fav.onclick = function () { var l = loadItems(), hit = l.filter(function (x) { return x.id === it.id; })[0]; if (hit) { hit.fav = !hit.fav; saveItems(l); renderList(); } };
+      box.append(h('div', { class: 'item' }, [btn, del, fav]));
     });
   }
   $('q').oninput = renderList; $('sort').onchange = renderList;
   $('csv').onclick = function () {
     var q = function (v) { return '"' + str(v).replace(/"/g, '""') + '"'; };
-    var rows = [['名前', 'ブランド', '年代', '産地', '状態', '価格帯(AI推定)', '説明'].map(q).join(',')];
+    var rows = [['名前', 'ブランド', '年代', '産地', '状態', '価格帯(AI推定)', '仕入れ値', '説明'].map(q).join(',')];
     loadItems().forEach(function (it) {
       var r = it.rep || {}, x = r.item || {};
-      rows.push([x.name, r.brand && r.brand.value, r.era && r.era.value, r.origin && r.origin.value, r.cond && r.cond.grade, priceText(x), x.desc].map(q).join(','));
+      rows.push([x.name, r.brand && r.brand.value, r.era && r.era.value, r.origin && r.origin.value, r.cond && r.cond.grade, priceText(x), it.cost || '', x.desc].map(q).join(','));
     });
     var t = rows.join('\n'), m = $('csvMsg');
     try { navigator.clipboard.writeText(t).then(function () { m.textContent = 'コピーしました。表計算アプリに貼り付けられます'; }, function () { m.textContent = 'コピーできませんでした'; }); } catch (e) { m.textContent = 'コピーできませんでした'; }
   };
   function showListMain() { $('listDetail').hidden = true; $('listMain').hidden = false; $('views').scrollTop = 0; }
+  $('bkCopy').onclick = function () {
+    var t = JSON.stringify(loadItems()), m = $('bkMsg');
+    try { navigator.clipboard.writeText(t).then(function () { m.textContent = 'コピーしました(' + loadItems().length + '件)'; }, function () { m.textContent = 'コピーできませんでした'; }); } catch (e) { m.textContent = 'コピーできませんでした'; }
+  };
+  $('bkRestore').onclick = function () {
+    var m = $('bkMsg'), data;
+    try { data = JSON.parse($('bkText').value); } catch (e) { m.textContent = '読み取れませんでした。コピーしたものをそのまま貼り付けてください'; return; }
+    if (!Array.isArray(data)) { m.textContent = '読み取れませんでした'; return; }
+    var cur = loadItems(), have = {}; cur.forEach(function (x) { have[x.id] = 1; });
+    var add = data.filter(function (x) { return x && x.id && x.rep && !have[x.id]; });
+    saveItems(cur.concat(add).sort(function (a, b) { return b.id - a.id; }).slice(0, MAX_ITEMS));
+    m.textContent = add.length + '件を復元しました'; $('bkText').value = ''; chrome();
+  };
   $('backList').onclick = function () { showListMain(); dropLayer('detail'); };
 
+  if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) { try { navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {} }
   renderThumbs();
   view = ($('key').value || '').trim() ? 'shoot' : 'set';
   chrome();
