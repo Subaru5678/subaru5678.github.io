@@ -136,6 +136,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 .chip.done { border-color: var(--ok); color: var(--ok); }
 .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 textarea.copybox { font-size: 14px; }
+select { font: inherit; font-size: 15px; color: var(--ink); background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 9px 8px; }
 
 #shootInput .panel { padding: 14px; gap: 10px; }
 
@@ -215,7 +216,7 @@ textarea.copybox { font-size: 14px; }
     <!-- リスト -->
     <section class="view" id="view-list" aria-label="リスト" hidden>
       <div class="stack" id="listMain">
-        <input type="text" id="q" placeholder="リスト内を検索(名前・ブランド)" hidden>
+        <div class="row"><input type="text" id="q" placeholder="リスト内を検索(名前・ブランド)" hidden style="flex:1 1 180px;min-width:0"><select id="sort" hidden aria-label="並び順"><option value="new">新しい順</option><option value="high">価格が高い順</option><option value="low">価格が低い順</option></select></div>
         <div class="items" id="listBody"></div>
         <div><button class="btn ghost small" id="csv" type="button" hidden>リストをコピー(表計算用)</button> <span class="hint" id="csvMsg"></span></div>
       </div>
@@ -233,7 +234,10 @@ textarea.copybox { font-size: 14px; }
         <input type="password" id="key" autocomplete="off" placeholder="AIza…">
         <label for="model">モデル名</label>
         <input type="text" id="model" value="gemini-flash-latest">
-        <div class="row"><button class="btn ghost" id="saveKey" type="button">保存</button><span class="hint" id="saveMsg"></span></div>
+        <div class="row"><button class="btn ghost" id="saveKey" type="button">保存</button><button class="btn ghost" id="testKey" type="button">接続テスト</button><span class="hint" id="saveMsg"></span></div>
+        <details><summary class="hint">APIキーの作り方</summary>
+          <ol class="hint"><li>下のリンクから Google AI Studio を開き、Google アカウントでログインします。</li><li>「Get API key」→「Create API key」を押します。</li><li>表示された「AIza…」をコピーして、上の欄に貼り付け、「保存」を押します。</li></ol>
+        </details>
         <p class="hint">キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> で無料で作れます。このブラウザの中にだけ保存され、Google 以外には送られません。無料枠に送った内容は、Google のサービス改善に使われることがあります。</p>
       </div>
     </section>
@@ -284,6 +288,17 @@ textarea.copybox { font-size: 14px; }
   function arr(v) { return Array.isArray(v) ? v : []; }
   function str(v) { return typeof v === 'string' ? v : (v == null ? '' : String(v)); }
 
+  /* ---- 戻るボタン: カメラ・詳細・結果を1つ前の画面として扱う ---- */
+  var layers = [];
+  function pushLayer(n) { layers.push(n); try { history.pushState({ l: n }, ''); } catch (e) {} }
+  function dropLayer(n) { if (layers[layers.length - 1] === n) { try { history.back(); } catch (e) { layers.pop(); } } }
+  window.addEventListener('popstate', function () {
+    var n = layers.pop();
+    if (n === 'cam') closeCam();
+    else if (n === 'detail') showListMain();
+    else if (n === 'result') toInput(false);
+  });
+
   /* ---- screens ---- */
   function chrome() {
     ['shoot', 'list', 'set'].forEach(function (v) { $('view-' + v).hidden = v !== view; });
@@ -311,6 +326,16 @@ textarea.copybox { font-size: 14px; }
     refreshGo();
   };
   $('key').oninput = refreshGo;
+  $('testKey').onclick = async function () {
+    var m = $('saveMsg'), btn = this; btn.disabled = true; m.textContent = 'テスト中…';
+    try {
+      var saveFiles = files; files = [];
+      try { await gemini('「OK」とだけ返してください。'); } finally { files = saveFiles; }
+      m.textContent = '接続できました(モデル: ' + $('model').value + ')';
+      store('gemini_key', $('key').value.trim()); store('gemini_model', $('model').value.trim() || DEFAULT_MODEL); refreshGo();
+    } catch (e) { m.textContent = errCopy(e); }
+    finally { btn.disabled = false; }
+  };
 
   /* ---- Gemini ---- */
   var API = 'https://generativelanguage.googleapis.com/v1beta/';
@@ -534,6 +559,7 @@ textarea.copybox { font-size: 14px; }
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
     stream = null; $('vid').srcObject = null; $('vid').style.transform = ''; $('camBox').hidden = true;
     try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+    dropLayer('cam');
   }
   function toast(text) {
     var t = $('zoomTag'); t.textContent = text; t.hidden = false;
@@ -571,7 +597,7 @@ textarea.copybox { font-size: 14px; }
   stage.addEventListener('wheel', function (e) { e.preventDefault(); setZoom(zoomLevel * (e.deltaY < 0 ? 1.1 : 0.9)); }, { passive: false });
   async function openCam() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('camFile').click(); return; }
-    $('camBox').hidden = false;
+    $('camBox').hidden = false; pushLayer('cam');
     try { if (document.fullscreenEnabled && !document.fullscreenElement) $('camBox').requestFullscreen({ navigationUI: 'hide' }).catch(function () {}); } catch (e) {}
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
@@ -620,6 +646,16 @@ textarea.copybox { font-size: 14px; }
       '{"k":"clue","part":"部位","seen":"見えたこと","means":"示すこと"}  ← 重要な順に最大4行',
       '{"k":"tips","photos":["追加で撮ると精度が上がる箇所"]}',
       '{"k":"kw","ja":["メルカリ・ヤフオク用の検索語"],"en":["eBay用の検索語"]}',
+      '',
+      '年代・産地を読むときの目安(どれも絶対ではなく、複数の手がかりが揃ったときだけ根拠にする):',
+      '- 洗濯表示: 日本の衣類は2016年12月以降が新JIS(ISO系の記号)、それ以前は旧JISの絵表示。米国では1971年に洗濯表示が義務化され、それ以前の服には付いていないことが多い。',
+      '- RN番号は米国の製造者登録番号、CA番号はカナダ。RNが入っていれば米国向けの製品。',
+      '- 組合ラベル(ILGWU、UNITE など)がある米国製は、概ね1990年代半ばまで。Made in USA の表記は、その製品が米国製だった時代の目安になる。',
+      '- ジッパーの刻印は TALON、CONMAR、SCOVILL などが古く、YKK は1960年代以降に広がった。金属ジッパーかプラスチックかも手がかり。',
+      '- ステッチ: Tシャツの袖・裾のシングルステッチは1990年代半ばまでに多い。デニムのチェーンステッチ裾は古い織機・縫製の目安。',
+      '- Levi\'s: 赤タブの文字が大文字の「LEVI\'S」(Big E)は1971年以前、小文字「Levi\'s」はそれ以降。タグ・隠しリベット・バックポケットの有無も確認する。',
+      '- プリントやタグの©年号は、製造年の上限(それより新しい)の目安。',
+      '- 縫製・タグ・ブランド名の書体が、ブランドの当時のものと違う場合は、真贋を「要確認」にする。',
       '',
       '守ること:',
       '- 写真に写っているものを根拠にする。ブランド・年代・産地は断定せず、迷う場合は信頼度を低にする。',
@@ -821,12 +857,14 @@ textarea.copybox { font-size: 14px; }
     var strip = $('strip'); strip.textContent = '';
     files.forEach(function (f) { strip.append(h('img', { src: f._url || (f._url = URL.createObjectURL(f)), alt: '' })); });
     shoot = 'result'; view = 'shoot'; chrome();
+    if (layers[layers.length - 1] !== 'result') pushLayer('result');
     var live = $('live');
     renderRep(rep, live, {});
     ctl = new AbortController();
     var timedOut = false, timer = setTimeout(function () { timedOut = true; ctl.abort(); }, 90000);
     var thumbP = makeThumb();
     try {
+      if (navigator.onLine === false) throw { code: 'network' };
       await geminiLines(buildPrompt(), function (line) { applyLine(rep, line); renderRep(rep, live, {}); }, ctl.signal);
       lastRep = rep;
       renderRep(rep, live, { done: true, followup: true });
@@ -840,13 +878,17 @@ textarea.copybox { font-size: 14px; }
     } finally { clearTimeout(timer); busy = false; refreshGo(); }
   }
   $('go').onclick = analyze;
-  $('again').onclick = function () {
+  function toInput(clear) {
     if (ctl) ctl.abort();
     busy = false;
-    files.forEach(function (f) { if (f._url) URL.revokeObjectURL(f._url); });
-    files = []; $('memo').value = ''; $('kind').value = '';
-    renderThumbs(); shoot = 'input'; chrome();
-  };
+    if (clear) {
+      files.forEach(function (f) { if (f._url) URL.revokeObjectURL(f._url); });
+      files = []; $('memo').value = ''; $('kind').value = '';
+      renderThumbs();
+    }
+    shoot = 'input'; refreshGo(); chrome();
+  }
+  $('again').onclick = function () { toInput(true); dropLayer('result'); };
 
   /* ---- リスト(このスマホの中に保存) ---- */
   function loadItems() { try { var v = JSON.parse(store(LS_ITEMS) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
@@ -861,14 +903,35 @@ textarea.copybox { font-size: 14px; }
     list.unshift({ id: Date.now(), thumb: thumb, rep: rep });
     saveItems(list.slice(0, MAX_ITEMS));
   }
+  function fmtDate(ts) { var d = new Date(ts); return isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  function priceLow(x) { var m = /(\d[\d,]*)/.exec(str(x && x.price)); return m ? parseInt(m[1].replace(/,/g, ''), 10) : -1; }
+  /* AIの答えを自分で直せる(名前・価格帯) */
+  function buildEdit(it) {
+    var x = (it.rep && it.rep.item) || {};
+    var nm = h('input', { type: 'text', value: x.name || '', 'aria-label': '名前' });
+    var pr = h('input', { type: 'text', value: /判定不能|不明/.test(x.price || '') ? '' : (x.price || ''), placeholder: '例: ¥8,000〜15,000', 'aria-label': '価格帯' });
+    var msg = h('span', { class: 'hint' });
+    var btn = h('button', { type: 'button', class: 'btn ghost small', text: '修正を保存' });
+    btn.onclick = function () {
+      var list = loadItems(), hit = list.filter(function (l) { return l.id === it.id; })[0];
+      if (!hit) return;
+      hit.rep = hit.rep || {}; hit.rep.item = hit.rep.item || {};
+      hit.rep.item.name = nm.value.trim() || hit.rep.item.name; hit.rep.item.price = pr.value.trim() || hit.rep.item.price;
+      saveItems(list); msg.textContent = '保存しました'; renderList();
+    };
+    return section('名前・価格帯を直す', [h('label', { text: '名前' }), nm, h('label', { text: '価格帯' }), pr, h('div', { class: 'row' }, [btn, msg])]);
+  }
   function renderList() {
     var box = $('listBody'), all = loadItems(), q = $('q').value.trim().toLowerCase(); box.textContent = '';
-    $('q').hidden = all.length < 4;
+    $('q').hidden = all.length < 4; $('sort').hidden = all.length < 2;
     $('csv').hidden = !all.length;
     var list = !q ? all : all.filter(function (it) {
       var r = it.rep || {}, x = r.item || {}, b = r.brand || {};
       return (str(x.name) + ' ' + str(x.desc) + ' ' + str(b.value)).toLowerCase().indexOf(q) >= 0;
     });
+    var sv = $('sort').value;
+    if (sv === 'high') list = list.slice().sort(function (a, b) { return priceLow(b.rep && b.rep.item) - priceLow(a.rep && a.rep.item); });
+    else if (sv === 'low') list = list.slice().sort(function (a, b) { var x = priceLow(a.rep && a.rep.item), y = priceLow(b.rep && b.rep.item); return (x < 0 ? 1e12 : x) - (y < 0 ? 1e12 : y); });
     if (!all.length) {
       box.append(h('div', { class: 'panel' }, [h('p', { class: 'note', text: 'まだ調べた服はありません。「撮影」で調査すると、ここに並びます。' })]));
       return;
@@ -878,21 +941,23 @@ textarea.copybox { font-size: 14px; }
       var r = it.rep || {}, x = r.item || {};
       var btn = h('button', { type: 'button', class: 'itembtn' }, [
         it.thumb ? h('img', { src: it.thumb, alt: '' }) : h('div', { class: 'noimg' }),
-        h('div', { class: 'itemtxt' }, [h('b', { text: x.name || '名称不明' }), h('span', { class: 'd', text: x.desc || '' }), h('span', { class: 'p', text: '価格帯 ' + priceText(x) })])
+        h('div', { class: 'itemtxt' }, [h('b', { text: x.name || '名称不明' }), h('span', { class: 'd', text: x.desc || '' }), h('span', { class: 'p', text: '価格帯 ' + priceText(x) }), h('span', { class: 'hint', text: fmtDate(it.id) })])
       ]);
       btn.onclick = function () {
         $('detailBody').textContent = '';
         if (it.thumb) $('detailBody').append(h('img', { class: 'detailThumb', src: it.thumb, alt: '' }));
         var inner = h('div', { class: 'stack' }); $('detailBody').append(inner);
         renderRep(r, inner, { done: true });
+        inner.append(buildEdit(it));
         $('listMain').hidden = true; $('listDetail').hidden = false; $('views').scrollTop = 0;
+        pushLayer('detail');
       };
       var del = h('button', { type: 'button', class: 'del', 'aria-label': 'リストから削除', text: '×' });
       del.onclick = function () { saveItems(loadItems().filter(function (x) { return x.id !== it.id; })); renderList(); };
       box.append(h('div', { class: 'item' }, [btn, del]));
     });
   }
-  $('q').oninput = renderList;
+  $('q').oninput = renderList; $('sort').onchange = renderList;
   $('csv').onclick = function () {
     var q = function (v) { return '"' + str(v).replace(/"/g, '""') + '"'; };
     var rows = [['名前', 'ブランド', '年代', '産地', '状態', '価格帯(AI推定)', '説明'].map(q).join(',')];
@@ -903,7 +968,8 @@ textarea.copybox { font-size: 14px; }
     var t = rows.join('\n'), m = $('csvMsg');
     try { navigator.clipboard.writeText(t).then(function () { m.textContent = 'コピーしました。表計算アプリに貼り付けられます'; }, function () { m.textContent = 'コピーできませんでした'; }); } catch (e) { m.textContent = 'コピーできませんでした'; }
   };
-  $('backList').onclick = function () { $('listDetail').hidden = true; $('listMain').hidden = false; $('views').scrollTop = 0; };
+  function showListMain() { $('listDetail').hidden = true; $('listMain').hidden = false; $('views').scrollTop = 0; }
+  $('backList').onclick = function () { showListMain(); dropLayer('detail'); };
 
   renderThumbs();
   view = ($('key').value || '').trim() ? 'shoot' : 'set';
