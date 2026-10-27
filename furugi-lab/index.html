@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>stylens</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23c2410c'/%3E%3Cpath d='M20 18l7-4q5 6 10 0l7 4 10 9-7 6-5-4v25H22V29l-5 4-7-6z' fill='none' stroke='%23fff' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 /* Layout: one screen at a time. Bottom tabs: 撮影 (capture + live result) / リスト / 設定. */
 :root {
@@ -128,6 +131,14 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 .followup { white-space: pre-wrap; overflow-wrap: anywhere; }
 .note { font-size: 13px; color: var(--muted); margin: 0; }
 
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 12px; border: 1px solid var(--line); border-radius: 99px; background: var(--paper); color: var(--ink); cursor: pointer; }
+.chip.done { border-color: var(--ok); color: var(--ok); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea.copybox { font-size: 14px; }
+
+#shootInput .panel { padding: 14px; gap: 10px; }
+
 /* list */
 .items { display: flex; flex-direction: column; gap: 10px; }
 .item { position: relative; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
@@ -181,6 +192,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
           </div>
           <input type="file" id="file" accept="image/*" multiple hidden>
           <input type="file" id="camFile" accept="image/*" capture="environment" hidden>
+          <div class="chips" id="shotlist" role="group" aria-label="撮る写真のチェックリスト"></div>
           <div class="thumbs" id="thumbs"></div>
           <p class="hint" id="photoHint"></p>
         </div>
@@ -202,7 +214,11 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 
     <!-- リスト -->
     <section class="view" id="view-list" aria-label="リスト" hidden>
-      <div id="listMain"><div class="items" id="listBody"></div></div>
+      <div class="stack" id="listMain">
+        <input type="text" id="q" placeholder="リスト内を検索(名前・ブランド)" hidden>
+        <div class="items" id="listBody"></div>
+        <div><button class="btn ghost small" id="csv" type="button" hidden>リストをコピー(表計算用)</button> <span class="hint" id="csvMsg"></span></div>
+      </div>
       <div class="stack" id="listDetail" hidden>
         <div><button class="btn ghost small" id="backList" type="button">← リストに戻る</button></div>
         <div id="detailBody"></div>
@@ -432,6 +448,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     network: '通信に失敗しました。接続を確認してもう一度押してください。',
     blocked: 'Gemini が回答を返しませんでした。写真やメモを変えて試してください。',
     image: '読み込めない画像が含まれています。別の画像に差し替えてください。',
+    timeout: '時間がかかりすぎました。電波の良い場所で、もう一度試してください。',
     api: 'Gemini がエラーを返しました。'
   };
   function errCopy(e) { return (ERR[e && e.code] || ERR.api) + (e && e.code === 'api' && e.detail ? ' (' + e.detail.slice(0, 120) + ')' : ''); }
@@ -451,7 +468,19 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       box.append(h('div', { class: 'thumb' }, [h('img', { src: url, alt: (i + 1) + '枚目の写真' }), b, f._label ? h('span', { class: 'lab', text: f._label }) : null]));
     });
     $('photoHint').textContent = files.length + ' / ' + MAX_PHOTOS + ' 枚(タグの接写があると精度が上がります)';
+    renderShotlist();
     refreshGo();
+  }
+  /* 撮るとよい写真のチェックリスト。押すとその種類のガイドでカメラが開く */
+  var SHOTS = [['tag', 'タグ'], ['body', '全体'], ['care', '洗濯表示'], ['part', 'パーツ']];
+  function renderShotlist() {
+    var box = $('shotlist'); box.textContent = '';
+    SHOTS.forEach(function (s) {
+      var done = files.some(function (f) { return f._label === s[1]; });
+      var b = h('button', { type: 'button', class: 'chip' + (done ? ' done' : ''), text: (done ? '✓ ' : '+ ') + s[1] });
+      b.onclick = function () { setMode(s[0]); openCam(); };
+      box.append(b);
+    });
   }
   function addFiles(list) {
     Array.prototype.forEach.call(list, function (f) {
@@ -469,8 +498,8 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
 
   /* ---- camera ---- */
   var stream = null, mode = 'tag', hw = false, zMin = 1, zMax = 4, zoomLevel = 1, dz = 1, zTimer = null, zRaf = 0;
-  var MODES = { tag: { label: 'タグ', title: 'ガイド: タグ' }, body: { label: '全体', title: 'ガイド: 服全体' }, part: { label: 'パーツ', title: 'ガイド: パーツ' }, free: { label: '', title: 'ガイドなし' } };
-  var ORDER = ['tag', 'body', 'part', 'free'];
+  var MODES = { tag: { label: 'タグ', title: 'ガイド: タグ' }, care: { label: '洗濯表示', title: 'ガイド: 洗濯表示' }, body: { label: '全体', title: 'ガイド: 服全体' }, part: { label: 'パーツ', title: 'ガイド: パーツ' }, free: { label: '', title: 'ガイドなし' } };
+  var ORDER = ['tag', 'care', 'body', 'part', 'free'];
   function rectGuide(x, y, w, hh) {
     var L = 7;
     return {
@@ -487,6 +516,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
   function guideSvg(m) {
     var g;
     if (m === 'tag') { g = rectGuide(8, 33, 84, 34); return strokePair(g.thin, false, true) + strokePair(g.thick, true, false); }
+    if (m === 'care') { g = rectGuide(22, 30, 56, 40); return strokePair(g.thin, false, true) + strokePair(g.thick, true, false); }
     if (m === 'part') {
       g = rectGuide(22, 22, 56, 56);
       return strokePair(g.thin, false, true) + strokePair(g.thick, true, false) + strokePair('M50 44V56M44 50H56', false, false);
@@ -586,6 +616,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       '{"k":"era","value":"年代の幅","conf":"高|中|低","why":"根拠を20字以内"}',
       '{"k":"origin","value":"製造国。不明なら 判別できず","conf":"高|中|低","why":"根拠を20字以内"}',
       '{"k":"auth","verdict":"問題なし|要確認|疑わしい|判定不能","note":"理由を40字以内"}',
+      '{"k":"cond","grade":"良好|普通|難あり|判定不能","note":"傷み・汚れ・色落ちを30字以内"}',
       '{"k":"clue","part":"部位","seen":"見えたこと","means":"示すこと"}  ← 重要な順に最大4行',
       '{"k":"tips","photos":["追加で撮ると精度が上がる箇所"]}',
       '{"k":"kw","ja":["メルカリ・ヤフオク用の検索語"],"en":["eBay用の検索語"]}',
@@ -601,12 +632,13 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       '- メモ: ' + (memo || 'なし')
     ].join('\n');
   }
-  function newRep() { return { item: null, brand: null, era: null, origin: null, auth: null, clues: [], tips: [], kwJa: [], kwEn: [] }; }
+  function newRep() { return { item: null, brand: null, era: null, origin: null, auth: null, cond: null, clues: [], tips: [], kwJa: [], kwEn: [] }; }
   function applyLine(rep, o) {
     switch (o.k) {
       case 'item': rep.item = { name: str(o.name), desc: str(o.desc), price: str(o.price), priceNote: str(o.price_note) }; break;
       case 'brand': case 'era': case 'origin': rep[o.k] = { value: str(o.value), conf: str(o.conf), why: str(o.why) }; break;
       case 'auth': rep.auth = { verdict: str(o.verdict), note: str(o.note) }; break;
+      case 'cond': rep.cond = { grade: str(o.grade), note: str(o.note) }; break;
       case 'clue': if (rep.clues.length < 6) rep.clues.push({ part: str(o.part), seen: str(o.seen), means: str(o.means) }); break;
       case 'tips': rep.tips = arr(o.photos).map(str).filter(Boolean); break;
       case 'kw': rep.kwJa = arr(o.ja).map(str).filter(Boolean); rep.kwEn = arr(o.en).map(str).filter(Boolean); break;
@@ -660,6 +692,9 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
         h('p', { class: 'note', text: '写真だけでは真贋を確定できません。参考として使ってください。' })]));
     } else if (!done) box.append(section('真贋', [pending()]));
 
+    var cd = rep.cond;
+    if (cd) box.append(section('状態', [h('div', {}, [h('span', { class: 'pill ' + (cd.grade === '良好' ? 'ok' : cd.grade === '難あり' ? 'bad' : 'warn'), text: cd.grade || '判定不能' })]), cd.note ? h('p', { style: 'margin:0', text: cd.note }) : null]));
+
     if (rep.clues.length) box.append(section('手がかり', [h('div', { class: 'clues' }, rep.clues.map(function (c) {
       return h('div', { class: 'clue' }, [h('div', { class: 'part', text: c.part }), h('div', { class: 'obs', text: c.seen }), h('div', { class: 'imp', text: c.means })]);
     }))]));
@@ -671,9 +706,58 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       lk.push(linkCard('https://auctions.yahoo.co.jp/closedsearch/closedsearch?p=' + enc(qj), 'ヤフオク 落札相場', qj));
     }
     if (qe) lk.push(linkCard('https://www.ebay.com/sch/i.html?_nkw=' + enc(qe) + '&LH_Sold=1&LH_Complete=1', 'eBay Sold items', qe));
-    if (lk.length) box.append(section('実際の相場を確認', [h('div', { class: 'links' }, lk), h('p', { class: 'note', text: '価格帯はAIの目安です。売り切れ履歴で確かめてください。' })]));
+    if (lk.length) box.append(section('実際の相場を確認', [h('div', { class: 'links' }, lk), h('p', { class: 'note', text: '価格帯はAIの目安です。売り切れ履歴で確かめてください。' })].concat(done && o.followup ? [buildMarket(rep)] : [])));
 
+    if (done && it) box.append(buildCopy(rep));
     if (done && o.followup) box.append(buildFollowup());
+  }
+
+  /* ---- ネット検索で相場を調べる(Google検索つき。結果は出典つき) ---- */
+  function buildMarket(rep) {
+    var out = h('div', { class: 'followup' }), src = h('div', { class: 'links' }), st = h('div', { class: 'status' });
+    var btn = h('button', { type: 'button', class: 'btn ghost small', text: 'AIにネットで相場を調べさせる' });
+    btn.onclick = async function () {
+      var it = rep.item || {}, kw = rep.kwJa.slice(0, 3).join(' ') || it.name;
+      btn.disabled = true; out.textContent = ''; src.textContent = ''; st.textContent = '';
+      st.append(h('span', { class: 'spin' }), document.createTextNode('ネットで調べています…'));
+      try {
+        var res = await gemini('古着の中古相場をGoogle検索で調べ、日本語で3〜5行で答えてください。\n対象: ' + (it.name || '') + '(ブランド: ' + (rep.brand ? rep.brand.value : '不明') + '、年代: ' + (rep.era ? rep.era.value : '不明') + ')\n検索語の例: ' + kw + '\n見つかった売り切れ・販売価格から、価格帯(円)と、その根拠(どのサイトの何件程度か)を書いてください。見つからなければ、見つからなかったと正直に書いてください。', { search: true });
+        st.textContent = ''; out.textContent = res.text;
+        res.sources.slice(0, 5).forEach(function (x) { if (/^https?:/.test(x.uri || '')) src.append(linkCard(x.uri, str(x.title) || '出典', '出典')); });
+      } catch (e) { st.textContent = ''; st.append(h('span', { class: 'err', text: errCopy(e) })); }
+      finally { btn.disabled = false; }
+    };
+    return h('div', { class: 'stack' }, [btn, st, out, src]);
+  }
+
+  /* ---- 出品文(通信なしで、調べた内容から作る) ---- */
+  function listingText(rep) {
+    var it = rep.item || {}, b = rep.brand, e = rep.era, o = rep.origin, c = rep.cond;
+    var known = function (x) { return x && x.value && !/判別できず|不明/.test(x.value) ? x.value : ''; };
+    var title = [known(b), it.name].filter(Boolean).join(' ');
+    return [
+      '【' + title + '】', '',
+      it.desc || '',
+      '',
+      known(b) ? '■ブランド: ' + known(b) : '',
+      known(e) ? '■年代: ' + known(e) + '(目安)' : '',
+      known(o) ? '■製造国: ' + known(o) : '',
+      c && c.grade && c.grade !== '判定不能' ? '■状態: ' + c.grade + (c.note ? '(' + c.note + ')' : '') : '',
+      '',
+      '※年代・製造国は写真をもとにした推定です。'
+    ].filter(function (l, i, a) { return l !== '' || (a[i - 1] !== '' && i > 0); }).join('\n');
+  }
+  function buildCopy(rep) {
+    var box = h('textarea', { class: 'copybox', rows: '8', readonly: '', hidden: '', 'aria-label': '出品文' });
+    var msg = h('span', { class: 'hint' });
+    var btn = h('button', { type: 'button', class: 'btn ghost small', text: '出品文をコピー' });
+    btn.onclick = function () {
+      var t = listingText(rep);
+      box.value = t; box.hidden = false; box.focus(); box.select();
+      var ok = function () { msg.textContent = 'コピーしました'; };
+      try { navigator.clipboard.writeText(t).then(ok, function () { msg.textContent = '長押しでコピーしてください'; }); } catch (e) { msg.textContent = '長押しでコピーしてください'; }
+    };
+    return section('出品用', [h('div', { class: 'row' }, [btn, msg]), box]);
   }
 
   /* ---- follow-up ---- */
@@ -740,6 +824,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     var live = $('live');
     renderRep(rep, live, {});
     ctl = new AbortController();
+    var timedOut = false, timer = setTimeout(function () { timedOut = true; ctl.abort(); }, 90000);
     var thumbP = makeThumb();
     try {
       await geminiLines(buildPrompt(), function (line) { applyLine(rep, line); renderRep(rep, live, {}); }, ctl.signal);
@@ -747,11 +832,12 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
       renderRep(rep, live, { done: true, followup: true });
       saveItem(rep, await thumbP);
     } catch (e) {
-      if (e && e.code === 'abort') return;
+      if (e && e.code === 'abort' && !timedOut) return;
+      if (timedOut) e = { code: 'timeout' };
       renderRep(rep, live, { done: true });
-      live.append(h('div', { class: 'panel' }, [h('div', { class: 'err', text: errCopy(e) }), h('p', { class: 'note', text: '「新しく撮る」から、もう一度試してください。' })]));
+      live.append(h('div', { class: 'panel' }, [h('div', { class: 'err', text: errCopy(e) }), h('div', {}, [(function () { var rb = h('button', { type: 'button', class: 'btn small', text: 'もう一度調べる' }); rb.onclick = analyze; return rb; })()])]));
       if (rep.item) saveItem(rep, await thumbP);
-    } finally { busy = false; refreshGo(); }
+    } finally { clearTimeout(timer); busy = false; refreshGo(); }
   }
   $('go').onclick = analyze;
   $('again').onclick = function () {
@@ -776,12 +862,19 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
     saveItems(list.slice(0, MAX_ITEMS));
   }
   function renderList() {
-    var box = $('listBody'), list = loadItems(); box.textContent = '';
-    if (!list.length) {
+    var box = $('listBody'), all = loadItems(), q = $('q').value.trim().toLowerCase(); box.textContent = '';
+    $('q').hidden = all.length < 4;
+    $('csv').hidden = !all.length;
+    var list = !q ? all : all.filter(function (it) {
+      var r = it.rep || {}, x = r.item || {}, b = r.brand || {};
+      return (str(x.name) + ' ' + str(x.desc) + ' ' + str(b.value)).toLowerCase().indexOf(q) >= 0;
+    });
+    if (!all.length) {
       box.append(h('div', { class: 'panel' }, [h('p', { class: 'note', text: 'まだ調べた服はありません。「撮影」で調査すると、ここに並びます。' })]));
       return;
     }
-    list.forEach(function (it, i) {
+    if (!list.length) { box.append(h('p', { class: 'note', text: '見つかりませんでした。' })); return; }
+    list.forEach(function (it) {
       var r = it.rep || {}, x = r.item || {};
       var btn = h('button', { type: 'button', class: 'itembtn' }, [
         it.thumb ? h('img', { src: it.thumb, alt: '' }) : h('div', { class: 'noimg' }),
@@ -795,10 +888,21 @@ ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column
         $('listMain').hidden = true; $('listDetail').hidden = false; $('views').scrollTop = 0;
       };
       var del = h('button', { type: 'button', class: 'del', 'aria-label': 'リストから削除', text: '×' });
-      del.onclick = function () { var l = loadItems(); l.splice(i, 1); saveItems(l); renderList(); };
+      del.onclick = function () { saveItems(loadItems().filter(function (x) { return x.id !== it.id; })); renderList(); };
       box.append(h('div', { class: 'item' }, [btn, del]));
     });
   }
+  $('q').oninput = renderList;
+  $('csv').onclick = function () {
+    var q = function (v) { return '"' + str(v).replace(/"/g, '""') + '"'; };
+    var rows = [['名前', 'ブランド', '年代', '産地', '状態', '価格帯(AI推定)', '説明'].map(q).join(',')];
+    loadItems().forEach(function (it) {
+      var r = it.rep || {}, x = r.item || {};
+      rows.push([x.name, r.brand && r.brand.value, r.era && r.era.value, r.origin && r.origin.value, r.cond && r.cond.grade, priceText(x), x.desc].map(q).join(','));
+    });
+    var t = rows.join('\n'), m = $('csvMsg');
+    try { navigator.clipboard.writeText(t).then(function () { m.textContent = 'コピーしました。表計算アプリに貼り付けられます'; }, function () { m.textContent = 'コピーできませんでした'; }); } catch (e) { m.textContent = 'コピーできませんでした'; }
+  };
   $('backList').onclick = function () { $('listDetail').hidden = true; $('listMain').hidden = false; $('views').scrollTop = 0; };
 
   renderThumbs();
