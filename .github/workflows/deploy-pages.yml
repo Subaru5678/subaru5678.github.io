@@ -29,6 +29,7 @@ jobs:
           cp -r dokkiri-x7k2 _site/
           cp -r kaigan-q4m8 _site/
           cp -r ai-chat _site/
+          cp -r furugi-lab _site/
       - uses: actions/configure-pages@v5
         with:
           enablement: true
