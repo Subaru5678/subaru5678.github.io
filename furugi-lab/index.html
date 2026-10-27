@@ -307,6 +307,7 @@ select { font: inherit; font-size: 15px; color: var(--ink); background: var(--so
     $('shootInput').hidden = shoot !== 'input';
     $('shootResult').hidden = shoot !== 'result';
     $('gobar').hidden = !(view === 'shoot' && shoot === 'input');
+    var n = loadItems().length; document.querySelector('.tab[data-view="list"]').textContent = n ? 'リスト(' + n + ')' : 'リスト';
     $('views').scrollTop = 0;
   }
   function showView(name) {
@@ -625,6 +626,7 @@ select { font: inherit; font-size: 15px; color: var(--ink); background: var(--so
     c.width = Math.round(cw); c.height = Math.round(ch);
     c.getContext('2d').drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
     try { $('stage').animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 160 }); } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
     c.toBlob(function (b) {
       if (!b) return;
       var file = new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
@@ -797,7 +799,14 @@ select { font: inherit; font-size: 15px; color: var(--ink); background: var(--so
       var ok = function () { msg.textContent = 'コピーしました'; };
       try { navigator.clipboard.writeText(t).then(ok, function () { msg.textContent = '長押しでコピーしてください'; }); } catch (e) { msg.textContent = '長押しでコピーしてください'; }
     };
-    return section('出品用', [h('div', { class: 'row' }, [btn, msg]), box]);
+    var kids = [btn];
+    if (navigator.share) {
+      var sh = h('button', { type: 'button', class: 'btn ghost small', text: '共有' });
+      sh.onclick = function () { navigator.share({ text: listingText(rep) }).catch(function () {}); };
+      kids.push(sh);
+    }
+    kids.push(msg);
+    return section('出品用', [h('div', { class: 'row' }, kids), box]);
   }
 
   /* ---- follow-up ---- */
@@ -909,6 +918,7 @@ select { font: inherit; font-size: 15px; color: var(--ink); background: var(--so
     var list = loadItems();
     list.unshift({ id: Date.now(), thumb: thumb, rep: rep });
     saveItems(list.slice(0, MAX_ITEMS));
+    chrome();
   }
   function fmtDate(ts) { var d = new Date(ts); return isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
   function priceLow(x) { var m = /(\d[\d,]*)/.exec(str(x && x.price)); return m ? parseInt(m[1].replace(/,/g, ''), 10) : -1; }
@@ -960,7 +970,7 @@ select { font: inherit; font-size: 15px; color: var(--ink); background: var(--so
         pushLayer('detail');
       };
       var del = h('button', { type: 'button', class: 'del', 'aria-label': 'リストから削除', text: '×' });
-      del.onclick = function () { saveItems(loadItems().filter(function (x) { return x.id !== it.id; })); renderList(); };
+      del.onclick = function () { saveItems(loadItems().filter(function (x) { return x.id !== it.id; })); renderList(); chrome(); };
       box.append(h('div', { class: 'item' }, [btn, del]));
     });
   }
