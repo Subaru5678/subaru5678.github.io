@@ -131,8 +131,12 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); 
 .fact { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .fact:last-child { border-bottom: 0; }
 .fact .v { font-weight: 700; font-size: 18px; overflow-wrap: anywhere; }
-.skel { color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; padding-block: 2px; }
-.skel .spin { width: 11px; height: 11px; border-width: 2px; }
+.skel { color: var(--muted); font-size: 15px; display: flex; gap: 10px; align-items: center; padding-block: 6px; }
+.skel .spin { width: 20px; height: 20px; border-width: 3px; }
+.skel.big { flex-direction: column; justify-content: center; text-align: center; gap: 14px; padding: 56px 16px; color: var(--ink); font-size: 20px; font-weight: 800; }
+.skel.big .spin { width: 56px; height: 56px; border-width: 6px; }
+.skel .sub { font-size: 15px; font-weight: 400; color: var(--muted); }
+.skel .elapsed { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--accent); }
 .conf { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
 .conf i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: inline-block; }
 .conf i.on { background: var(--accent); }
@@ -758,7 +762,17 @@ details.opt[open] > summary { margin-bottom: 10px; }
     wrap.append(document.createTextNode(' 信頼度 ' + (c || '不明')));
     return wrap;
   }
-  function pending(text) { return h('div', { class: 'skel' }, [h('span', { class: 'spin' }), document.createTextNode(text || '調べています…')]); }
+  var loadStart = 0, loadTick = null;
+  function elapsedText() { return loadStart ? Math.round((Date.now() - loadStart) / 1000) + '秒' : ''; }
+  function startTick() {
+    loadStart = Date.now(); clearInterval(loadTick);
+    loadTick = setInterval(function () { var t = elapsedText(); Array.prototype.forEach.call(document.querySelectorAll('.elapsed'), function (e) { e.textContent = t; }); }, 1000);
+  }
+  function stopTick() { clearInterval(loadTick); loadStart = 0; }
+  function pending(text, big) {
+    if (big) return h('div', { class: 'skel big' }, [h('span', { class: 'spin' }), h('div', { text: text || '調べています…' }), h('div', { class: 'sub', text: '10〜20秒ほどかかります' }), h('div', { class: 'elapsed', text: elapsedText() })]);
+    return h('div', { class: 'skel' }, [h('span', { class: 'spin' }), h('span', { text: text || '調べています…' }), h('span', { class: 'elapsed', text: elapsedText() })]);
+  }
   function fact(k, o, done) {
     var kids = [h('div', { class: 'k', text: k })];
     if (o) kids.push(h('div', { class: 'v', text: o.value || '判別できず' }), confDots(o.conf), h('div', { class: 'e', text: o.why }));
@@ -777,7 +791,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
     o = o || {};
     var done = !!o.done, it = rep.item;
     box.textContent = '';
-    if (!it && !done) { box.append(pending('服を見ています…')); return; }
+    if (!it && !done) { box.append(pending('服を見ています…', true)); return; }
     box.append(h('div', { class: 'tag' }, [
       h('div', { class: 'tag-head' }, [
         h('div', { class: 'label', text: 'INSPECTION TAG / 検品票' }),
@@ -931,7 +945,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
   }
   async function analyze() {
     if (!files.length || busy) return;
-    busy = true; refreshGo();
+    busy = true; refreshGo(); startTick();
     var rep = newRep(); lastRep = null;
     var strip = $('strip'); strip.textContent = '';
     files.forEach(function (f) { strip.append(h('img', { src: f._url || (f._url = URL.createObjectURL(f)), alt: '' })); });
@@ -957,7 +971,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
       renderRep(rep, live, { done: true });
       live.append(h('div', { class: 'panel' }, [h('div', { class: 'err', text: errCopy(e) }), h('div', {}, [(function () { var rb = h('button', { type: 'button', class: 'btn small', text: 'もう一度調べる' }); rb.onclick = analyze; return rb; })()])]));
       if (rep.item) saveItem(rep, await thumbP);
-    } finally { clearTimeout(timer); busy = false; refreshGo(); }
+    } finally { clearTimeout(timer); stopTick(); busy = false; refreshGo(); }
   }
   $('go').onclick = analyze;
   function toInput(clear) {
