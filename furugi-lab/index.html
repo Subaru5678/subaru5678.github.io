@@ -415,10 +415,10 @@ details.opt[open] > summary { margin-bottom: 10px; }
   }
   function mapErr(status, data) {
     var m = (data && data.error && data.error.message) || '';
-    return { code: status === 429 ? 'rate' : status === 404 ? 'model' : (status === 400 || status === 403) && /API key|API_KEY/i.test(m) ? 'badkey' : 'api', detail: m };
+    return { code: status === 503 || status === 500 ? 'busy' : status === 429 ? 'rate' : status === 404 ? 'model' : (status === 400 || status === 403) && /API key|API_KEY/i.test(m) ? 'badkey' : 'api', detail: m };
   }
   /* 指定のモデルが使えないとき、キーで使える最新の flash 系を探す */
-  async function pickModel(key) {
+  async function pickModel(key, all) {
     try {
       var res = await fetch(API + 'models?pageSize=200', { headers: { 'x-goog-api-key': key } });
       var data = await res.json();
@@ -431,8 +431,8 @@ details.opt[open] > summary { margin-bottom: 10px; }
         return { n: n, v: v ? parseFloat(v[1]) : 0, p: /preview/.test(n) ? 0 : 1 };
       });
       list.sort(function (a, b) { return b.v - a.v || b.p - a.p; });
-      return list.length ? list[0].n : null;
-    } catch (e) { return null; }
+      return all ? list.map(function (x) { return x.n; }) : (list.length ? list[0].n : null);
+    } catch (e) { return all ? [] : null; }
   }
   async function sendReq(key, model, body, stream, signal) {
     try {
@@ -460,6 +460,23 @@ details.opt[open] > summary { margin-bottom: 10px; }
       if (res.status === 400 && /thinking/i.test(JSON.stringify(data)) && thinkIdx < THINK.length - 1) { thinkIdx++; store('gemini_think', String(thinkIdx)); continue; }
       break;
     }
+    var attempt = 0;
+    while (!res.ok && (res.status === 503 || res.status === 500) && attempt < 3) { /* 混雑は少し待って再試行 */
+      attempt++;
+      if (opts.notify) opts.notify('Gemini が混み合っています。再試行しています(' + attempt + '/3)…');
+      await new Promise(function (r) { setTimeout(r, attempt * 1500); });
+      if (opts.signal && opts.signal.aborted) throw { code: 'abort' };
+      res = await sendReq(key, model, body, opts.stream, opts.signal);
+      if (!res.ok) data = await errBody(res);
+    }
+    if (!res.ok && (res.status === 503 || res.status === 500)) { /* それでもだめなら、別のモデルを順に試す(保存済みの設定は変えない) */
+      var others = (await pickModel(key, true)).filter(function (n) { return n !== model; }).slice(0, 2);
+      for (var oi = 0; oi < others.length && !res.ok; oi++) {
+        if (opts.notify) opts.notify('別のモデルで試しています…');
+        var ro = await sendReq(key, others[oi], body, opts.stream, opts.signal);
+        if (ro.ok) res = ro; else { res = ro; data = await errBody(ro); }
+      }
+    }
     if (!res.ok && res.status === 404) {
       var alt = await pickModel(key);
       if (alt && alt !== model) {
@@ -485,7 +502,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
   }
   /* 調査用(出てきた順に1行ずつ渡す。1行=1つのJSON) */
   async function geminiLines(text, onLine, signal) {
-    var res = await open(text, { stream: true, signal: signal });
+    var res = await open(text, { stream: true, signal: signal, notify: function (note) { var el = document.querySelector('.skel.big .sub'); if (el) el.textContent = note; } });
     var reader = res.body.getReader(), dec = new TextDecoder();
     var sse = '', buf = '', all = '', got = 0;
     function handle(ln) {
@@ -527,6 +544,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
     nokey: 'APIキーが未設定です。「設定」に入れて保存してください。',
     badkey: 'APIキーが正しくありません。Google AI Studio で作ったキーを確認してください。',
     model: '使えるモデルが見つかりませんでした。「設定」のモデル名を、AI Studio に出ているものに書き換えてください。',
+    busy: 'Gemini が混み合っています(Google側の一時的な混雑です)。少し待って、もう一度試してください。',
     rate: '無料枠の上限に達しました。しばらく待つか、明日もう一度試してください。',
     network: '通信に失敗しました。接続を確認してもう一度押してください。',
     blocked: 'Gemini が回答を返しませんでした。写真やメモを変えて試してください。',
@@ -968,7 +986,7 @@ details.opt[open] > summary { margin-bottom: 10px; }
     } catch (e) {
       if (e && e.code === 'abort' && !timedOut) return;
       if (timedOut) e = { code: 'timeout' };
-      renderRep(rep, live, { done: true });
+      if (rep.item) renderRep(rep, live, { done: true }); else live.textContent = '';
       live.append(h('div', { class: 'panel' }, [h('div', { class: 'err', text: errCopy(e) }), h('div', {}, [(function () { var rb = h('button', { type: 'button', class: 'btn small', text: 'もう一度調べる' }); rb.onclick = analyze; return rb; })()])]));
       if (rep.item) saveItem(rep, await thumbP);
     } finally { clearTimeout(timer); stopTick(); busy = false; refreshGo(); }
